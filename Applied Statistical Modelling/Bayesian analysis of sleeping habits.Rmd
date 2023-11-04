@@ -1,0 +1,1792 @@
+---
+title: "Luciano_Rota_Applied_Bayesian"
+author: "Luciano Rota"
+date: "2023-01-12"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Intro
+This is the report containing my bayesian analysis assignment. I will provide the three models, with chunks of code and some explanations. For the data, I’ve conducted a brief research (no, just asking to my friends) and I got 37 observations, with 14 that affirmed to me that they slept more than 8 hours.
+It has been a nice work, I wish to provide a good report.
+
+
+# MODEL 1 – Conjugate case
+
+The conjugate Prior of a Bernoulli or a Binomial distribution of the data
+is the Beta density, so we use it with the hyperparameters a and b
+
+# CASE 1
+
+## Prior  
+
+Hyperparameters of the Prior chosen according to the best guess, that is having the probability of the parameter to be less than 0.5 equal to 0.85, that is Pr(th < 0.5)=0.85, and having an Expected Value of the Prior around 0.3. 
+I know I should use the “Prior sample principle”, but taking a prior with a=30 and b=70, reaching the prior sample=100, wasn’t a good idea for me because it would have driven too much my Bayesian inference given that I could be able to sample only 37 statistical units: I would have used it if I could have collected much more data. 
+So I decided to go in the way stated before, but having that I found numbers with decimals, I decided to round them (to have some sort of real-life reflection of my hyperparameters) to get close to what was decided in the section “Prior info” but without letting the Prior be too informative .
+NB: Anyway, I decided to attach at the final of MODEL 1 the CASE 1 considering a much more informative Prior according to the article “College Students Don’t Get Enough Sleep”, just to play a bit and extend my analysis. It is in the code, I don’t report it here.
+ 
+
+So here I set the Hyperparameters
+```{r, echo=T,  message=F, warning=F}
+b=6
+a=3
+```
+
+Now I compute some functionals of the Prior: expected value, variance, probability
+to draw a theta smaller than 0.5, and I also calculate the quantile given the probability 0.85, to 
+see if it corresponds to 0.5 as it's required.  
+I use the properties of the beta distribution to get them.
+```{r, echo=T,  message=F, warning=F}
+#Prior mean
+E_th0=a/(a+b)
+E_th0
+#Prior variance
+var_th0=(a*b)/((a+b)^2+(a+b+1))
+var_th0
+#P(th<0.5)
+priorE0=pbeta(0.5,a,b)
+priorE0
+#Verifying that the quantile, given the probability 0.85, corresponds to 0.5
+quant_p0.85_th0=qbeta(0.85,a,b)
+quant_p0.85_th0
+```
+
+## Posterior
+
+Having 37 observations, and 14 respondents who declared to have slept more
+than 8 hours, I build the Posterior parameters an, bn, so my posterior distribution 
+of the parameter theta will be
+P(th|Y1...Yn) ∼ Beta(17, 29)
+```{r, echo=T,  message=F, warning=F}
+n=37
+sumy=14
+an=a+sumy
+bn=b+n-sumy
+```
+
+Here I compute the functionals of the Posterior.
+For mean and variance I use again the Beta properties, but now for the expected value
+I can also take advantage to the fact that the posterior mean is a convex combination of the prior and the sample mean.
+```{r, echo=T,  message=F, warning=F}
+E_thn=an/(an+bn)
+E_thn
+
+#Posterior variance
+var_thn=(an*bn)/((an+bn)^2+(an+bn+1))
+var_thn
+
+#Posterior mean as a convex combination
+E_thn_v2=(a/(a+b))*((a+b)/(a+b+n))+(sumy/n)*(n/(a+b+n))
+E_thn_v2
+```
+If the Prior mean was 0.33 this is instead 0.37, so quite similar, but sligthly bigger
+because of the bigger magnitude of the sample mean. The variances are very similar though.
+
+I now get the relevant quantities
+- the median, that is almost equal to the mean
+- the new quantile corresponding to the probability equals to 85%: now, with probability 
+equal to 0.85, our posterior distribution is smaller or equal than 0.44, not 0.5 anymore
+- the confidence region: the posterior probability that theta belongs to [0.238, 0.512] has 95% level of credibility.
+I report everything here.
+```{r, echo=T,  message=F, warning=F}
+median_thn=qbeta(0.5,an,bn)
+median_thn
+ 
+quant_p0.85_thn=qbeta(0.85,an,bn)
+quant_p0.85_thn
+
+ConfRegion=qbeta(c(0.025,0.975),an,bn)
+ConfRegion
+```
+
+Now let's analyse the graphs
+
+#### Graph of Prior, Posterior and Likelihood
+
+```{r, echo=F,  message=F, warning=F}
+Prior_distr=curve(dbeta(x,a,b),from=0,to=1,col="yellow",
+                  lwd=2,ylab="density",xlab="theta",ylim=c(0,6))
+Post_distr=curve(dbeta(x, an, bn), from=0, to=1, col="brown",
+                 lwd=2,ylab="density",xlab="theta", add=T)
+Likelihood_distr=curve(dbeta(x, sumy+1, n-sumy+1), from=0, to=1, col="green",
+                 lwd=2,ylab="density",xlab="theta", add=T)
+legend("topright",c("Prior","Posterior","Likelihood"),
+       lwd=c(2,2,2),col=c("yellow","brown","green"))
+```
+
+We can see that the distribution of the Likelihood is affected by the Prior, hence the Posterior 
+distribution will be taken to the left by our A Priori guess
+
+## Prediction
+
+In the Bernoulli-Beta model, the predictive distribution of Y_new=1 is the 
+marginal of y_new given the data, because they give information about θ, 
+which in turn gives information about Y_new. From m(y_new|y_1:n) we arrive at 
+P(Y_new=1|y_1:n) = posterior mean, so we have
+```{r, echo=T,  message=F, warning=F}
+Pred_distr=E_thn
+SleepingWell_new=Pred_distr*20
+SleepingWell_new
+```
+For 20 new sampled students, given the posterior distribution, the prediction
+says that only 7 students will have slept more than 8 hours
+
+## Evidence in favour of the data collected
+
+I now compute the BF to study the alternative events: 
+E0 := {th ≤ 0.5} and E1 := {th > 0.5}
+```{r, echo=T,  message=F, warning=F}
+priorE0=pbeta(0.5,a,b)
+posteriorE0=pbeta(0.5,an,bn)
+priorE1=1-pbeta(0.5,a,b)
+posteriorE1=1-pbeta(0.5,an,bn)
+BF=(posteriorE0/posteriorE1)/(priorE0/priorE1)
+BF
+BFlog10=log10(BF)
+BFlog10
+```
+
+Given that the Bayes Factor is 4.494676 (or, in log10, 0.6526984), 
+I conclude that there is a substantial data evidence in favor of E0, 
+so in favor of P(θ≤0.5|y_1:n): 
+the majority of my friends and student friends don't sleep enough! But not so 
+dramatically as I stated in the Prior
+
+
+# CASE 2
+
+To choose Hyperparameters of the Prior in such a way that I assume no 
+knowledge, I choose Beta(1,1), that is like a Uniform which gives probability 
+of observing 1 equal to 1/2
+
+##Prior
+I start again choosing the Hyperparameter
+```{r, echo=T,  message=F, warning=F}
+al=1
+be=1
+```
+
+The functionals of the Prior, using again the properties of the Beta distribution.
+In this case I dont calculate the prior probability to have a theta less or equal to 0.5
+because it's obvious given the uniform prior
+```{r, echo=T,  message=F, warning=F}
+#Prior mean
+E_th0_2=al/(al+be)
+E_th0_2
+#Prior variance
+var_th0_2=(al*be)/((al+be)^2+(al+be+1))
+var_th0_2
+```
+
+## Posterior
+
+Having 37 observations, and 14 respondents who declared to have slept more
+than 8 hours, I build the Posterior parameters an, bn, hence posterior distribution 
+of the parameter theta is
+P(th|Y1...Yn) ∼ Beta(15, 24)
+```{r, echo=T,  message=F, warning=F}
+n=37
+sumy=14
+aln=al+sumy
+ben=be+n-sumy
+```
+
+Let's get the functionals of the Posterior.
+Again using the Beta properties and, for the mean, also that is a convex combination of the prior and the sample means
+```{r, echo=T,  message=F, warning=F}
+#Posterior mean
+E_thn_2=aln/(aln+ben)
+E_thn_2
+#Posterior variance
+var_thn_2=(aln*ben)/((aln+ben)^2+(aln+ben+1))
+var_thn_2
+#Posterior mean as a convex combination 
+E_thn_2_v2=(al/(al+be))*((al+be)/(al+be+n))+(sumy/n)*(n/(al+be+n))
+E_thn_2_v2
+```
+
+I observe that with a Prior∼Beta(1,1) the posterior mean is slightly bigger 
+than the sample mean, but less than a unit, so there is a little influence of the Prior.
+The variance increased a bit, but if we take into account the first case, it doesn't change a lot.
+
+Speaking about the relevant quantiles, Prior and Posterior are obviously different 
+more now than in case 1:
+- the median, that is almost equal to the mean like before.
+- the new quantile corresponding to the probability equals to 85%: now, with probability 
+equal to 0.85, our posterior distribution is smaller or equal than 0.465.
+- the confidence region: the posterior probability that theta belongs to [0.24, 0.54] has 95% level of credibility. Also here, because of the Prior uniform, the confidence region slightly 
+increased in its values.
+I report all down there
+```{r, echo=T,  message=F, warning=F}
+median_thn_2=qbeta(0.5,aln,ben)
+median_thn_2
+
+quant_p0.85_thn_2=qbeta(0.85,aln,ben)
+quant_p0.85_thn_2
+
+ConfRegion_2=qbeta(c(0.025,0.975),aln,ben)
+ConfRegion_2
+```
+
+## Graph of Prior, Posterior and Likelihood
+
+```{r, echo=F,  message=F, warning=F}
+Prior_distr=curve(dbeta(x,al,be),from=0,to=1,col="magenta",
+                  lwd=2,ylab="density",xlab="θ",ylim=c(0,6))
+Post_distr=curve(dbeta(x, aln, ben), from=0, to=1, col="cyan",
+                 lwd=3,ylab="density",xlab="θ", add=T)
+Likelihood_distr=curve(dbeta(x, sumy+1, n-sumy+1), from=0, to=1, col="black",
+                       lwd=1,lty=3, ylab="density",xlab="θ", add=T)
+legend("topright",c("Prior","Posterior"),
+       lwd=c(2,3), col=c("magenta","cyan"))
+legend("topleft","Likelihood",lty=3, col="black")
+```
+
+When the Prior is not very informative and weak (so when it is a uniform prior, which
+gives equals probability to every theta), the Likelihood and the Posterior 
+coincides, so in the graphical representation we can appreciate how the frequentist 
+approach coincides with the bayesian approach.
+
+## Prediction
+```{r, echo=T,  message=F, warning=F}
+Pred_distr_2=E_thn_2
+SleepingWell_new_2=Pred_distr_2*20
+SleepingWell_new_2
+```
+
+For 20 new sampled students, in this case, given the posterior distribution, 
+the prediction says that almost 8 students will have slept more than 8 hours
+
+## Evidence in favour of the data collected
+
+Proceeding now with the computation of the BF to study the alternative events: 
+E0:= {th ≤ 0.5} and E1:= {th > 0.5}
+```{r, echo=T,  message=F, warning=F}
+priorE0_2=pbeta(0.5,al,be)
+posteriorE0_2=pbeta(0.5,aln,ben)
+priorE1_2=1-pbeta(0.5,al,be)
+posteriorE1_2=1-pbeta(0.5,aln,ben)
+BF_2=(posteriorE0_2/posteriorE1_2)/(priorE0_2/priorE1_2)
+BF_2
+BF_2log10=log10(BF_2)
+BF_2log10
+```
+
+Given that the Bayes Factor is 12.95609 (or, in log10, 1.112474), 
+I conclude that there is a strong data evidence in favor of E0, so in favor of P(th≤0.5|y_1:n): 
+the majority of my friends and student friends don't sleep enough, and I say that with
+much emphasis with respect to case 1!   
+In this case the prior was very different: before was in according to my data more or less,
+so the research confirmed the Prior knowledge, but now, with a uniform prior, I only give 
+informative importance to the Likelihood taken from my data: it is the only thing that determines 
+the choice of E0 
+
+# CASE 3
+
+With the Prior and its Hyperparameters I proceed with the same philosophy to 
+the CASE 1, so natural numbers as hyperparameters, without letting them be too
+informative, and set to reflect an expected value of theta around 0.7 and to be bigger
+than 0.5 with probability 0.85
+
+## Prior
+Like ever, I start with the Hyperparameters
+```{r, echo=T,  message=F, warning=F}
+a3=6
+b3=3
+```
+
+Now I compute the Prior functionals needed: expected value, probability to be bigger than 
+0.5 (that we want equal to 85%) and the reverse, so the quantile given that we want
+with 85% probability a theta larger than 0.5, that must corresponds to 0.5! 
+This just to have a complete view
+```{r, echo=T,  message=F, warning=F}
+#Prior mean
+E_th0_3=a3/(a3+b3)
+E_th0_3
+#P(th>0.5)
+priorE1_3=1-pbeta(0.5,a3,b3)
+priorE1_3
+#Verifying if we have 85% probability to observe a theta greater than 0.5
+quant_p0.85_th0_3=qbeta(1-0.85,a3,b3)
+quant_p0.85_th0_3
+#Prior variance
+var_th0_3=(a3*b3)/((a3+b3)^2+(a3+b3+1))
+var_th0_3
+```
+
+## Posterior
+Having 37 observations, and 14 respondents who declared to have slept more
+than 8 hours, I build the Posterior parameters an, bn. The posterior distribution is
+P(θ|Y1...Yn) ∼ Beta(20, 26)
+```{r, echo=T,  message=F, warning=F}
+n=37
+sumy=14
+a3n=a3+sumy
+b3n=b3+n-sumy
+```
+
+The procedure for the functionals of the Posterior is the same as the previous two.
+Again using the Beta properties and, for the expected value, also that is a convex 
+combination of the prior and the sample means.
+```{r, echo=T,  message=F, warning=F}
+#Posterior mean
+E_thn_3=a3n/(a3n+b3n)
+E_thn_3
+#Posterior variance
+var_thn_3=(a3n*b3n)/((a3n+b3n)^2+(a3n+b3n+1))
+var_thn_3
+#Posterior mean as a convex combination of the prior and the sample means
+E_thn_v2_3=(a3/(a3+b3))*((a3+b3)/(a3+b3+n))+(sumy/n)*(n/(a3+b3+n))
+E_thn_v2_3
+```
+
+The posterior mean changes of 0.05 units in this case with respect to case 2. 
+Such an "adverse" Prior (adverse to the Likelihood and to the first case Prior) influences 
+the posterior mean more than the two previous cases 
+
+It's time to get the relevant quantities
+- the median, that is almost equal to the mean for the third time
+- the new quantile corresponding to the probability equals to 85%: now, with probability 
+equal to 0.85, the posterior distribution is greater than 0.36; to note that this is 
+the smallest value found between the three cases, also here because of the influence 
+of the Prior that conducts the area a little more near to his values
+- the confidence region: the posterior probability that theta belongs to [0.296, 0.578] has 95% level of credibility; also here, is the confidence region with the values more "on the right"
+
+```{r, echo=T,  message=F, warning=F}
+median_thn_3=qbeta(0.5,a3n,b3n)
+median_thn_3
+
+quant_p0.85_thn_3=qbeta(1-0.85,a3n,b3n)
+quant_p0.85_thn_3
+
+ConfRegion_3=qbeta(c(0.025,0.975),a3n,b3n)
+ConfRegion_3
+```
+
+## Graph of Prior, Posterior and Likelihood  
+
+```{r, echo=F,  message=F, warning=F}
+Prior_distr_3=curve(dbeta(x,a3,b3),from=0,to=1,col="yellow",
+                  lwd=2,ylab="density",xlab="θ",ylim=c(0,6))
+Post_distr_3=curve(dbeta(x, a3n, b3n), from=0, to=1, col="brown",
+                 lwd=2,ylab="density",xlab="θ", add=T)
+Likelihood_distr_3=curve(dbeta(x, sumy+1, n-sumy+1), from=0, to=1, col="green",
+                       lwd=2,ylab="density",xlab="θ", add=T)
+legend("topright",c("Prior","Posterior","Likelihood"),
+       lwd=c(2,2,2),col=c("yellow","brown","green"))
+```
+
+Graphically we can see how the Prior influences the likelihood: it moves the  
+Posterior to the right, so this optimistic Prior makes greater in terms of 
+expected values and quantiles the Posterior respect to the likelihood and 
+respect to the other two cases, like already stated above.
+
+## Prediction  
+```{r, echo=T,  message=F, warning=F}
+
+Pred_distr_3=E_thn_3
+
+SleepingWell_new_3=Pred_distr_3*20
+```
+
+For 20 new sampled students, given the posterior distribution, the prediction
+says that almost 9 students will have slept more than 8 hours. one more than the second case, 
+two more than the first case.
+
+## Evidence in favour of the data collected  
+
+Finally, studying the alternative events, so computing BF to study the alternative events: 
+E0:= {th ≤ 0.5} and E1:= {th > 0.5}
+```{r, echo=T,  message=F, warning=F}
+
+priorE0_3=pbeta(0.5,a3,b3)
+posteriorE0_3=pbeta(0.5,a3n,b3n)
+priorE1_3
+posteriorE1_3=1-pbeta(0.5,a3n,b3n)
+BF_3=(posteriorE0_3/posteriorE1_3)/(priorE0_3/priorE1_3)
+BF_3log10=log10(BF_3)
+```
+
+Given that the Bayes Factor is 25.96339 (or, in log10, 1.414361), 
+I conclude that there is a strong data evidence in favor of E0, so in favor of 
+P(th≤0.5|y_1:n):   
+the majority of my friends and student friends don't sleep enough! The 
+optimistic Prior has been strongly changed given my data. 
+To note how in the three cases, an increase in the Prior leads to an increase in the
+Bayes Factor. That is given by the fact that the Likelihood, much stronger than the 
+Prior in terms of magnitude, is what determines the choice of the events: so if we
+guess a totally far from evidence Prior, the strongness of the data will be higher 
+than a Prior near to the true; that is to say, the Prior knowledge is changed more 
+drastically if far from the truth, or at least the truth told by the data. 
+
+
+# MODEL 2
+
+For this model I followed three different ways. The first two were wrong but I want to
+spend two words on it.
+I was thinking that the right way was creating a sort of Prior negative binomial distribution
+because it is valid for the discrete case and I know that marginally, having no data, 
+the parameters have this type of distribution. So I thought to transform linearly the
+results of a Prior negative binomial, with some Hyperparameters, to obtain values between
+0 and 1, and not in the real domain. But after several tries I understood that it was
+an interesting but failing way.
+So my second idea was proceeding with the "Beta-Binomial" approach, coercing the Beta
+distribution to have a discrete form. I made all the three cases using this method, but
+it wasn't convincing me.
+Finally, I had a simple but strong idea, while I was training; the bike was my 
+Newton's apple (maybe a little bit less important and on a mind a little bit less clever).
+The idea was constructing manually the Prior, and then manually making the calculus and
+the plots. So simple, so basic, but a lot of time to understand it.
+Anyway, in the code, commented, I report also the Beta-Binomial approach, just to 
+conserve it, and also some residuals of my first attempt; but regarding this one I had 
+cancelled almost everything so there is not a lot left.
+
+# CASE 1
+
+## Prior
+
+Since we must use a discrete Prior and don't have any information by definition, 
+I decided to use a manual approach, trying to stay close to the section "Prior information". 
+
+I build by hand my discrete support of theta and a personal Prior
+
+```{r, echo=T,  message=F, warning=F}
+theta=seq(0.1,0.9,by=0.1)
+Prior_P=c(0.15,0.25,0.26,0.10,0.09,0.08,0.06,0.008,0.002)
+```
+
+I compute some Prior functionals: expected value, variance and probability to be smaller 
+or equal to 0.5 (that I setted equal to 85%).
+```{r, echo=T,  message=F, warning=F}
+#Prior mean
+E_Prior_P=0
+for(i in 1:length(theta)){
+  E_Prior_P=E_Prior_P+theta[i]*Prior_P[i]
+}
+E_Prior_P
+
+#Prior variance
+Var_Prior_P=0
+for(i in 1:length(theta)){
+  Var_Prior_P=Var_Prior_P+((theta[i]-E_Prior_P)^2)*Prior_P[i]
+}
+Var_Prior_P
+
+#Prior probability of E0
+E0_Prior_P=sum(Prior_P[1:5])
+E0_Prior_P
+```
+
+## Likelihood
+
+After inserting the data (they are always the same, 14 positive respondents and
+37 total observations), I calculate the Likelihood using the distribution of a Bernoulli,
+so th^sum of y's*(1-th)^n-sum of y's
+
+```{r, echo=T,  message=F, warning=F}
+sumy=14
+n=37
+Likelihood_P=rep(0,9)
+for(i in 1:length(theta)){
+  Likelihood_P[i]=theta[i]^sumy*(1-theta[i])^(n-sumy)
+}
+```
+
+I then scale it so I will be able to represent it graphically (because the Likelihood is not
+a probability, so it has a very different scale of measure)
+
+```{r, echo=T,  message=F, warning=F}
+Likelihood_P_scaled_for_graph=rep(0,9)
+for(i in 1:length(theta)){
+  Likelihood_P_scaled_for_graph[i]=Likelihood_P[i]/sum(Likelihood_P[1:9])
+}
+```
+
+I am now able to build two graphical representation of the Likelihood: 
+- the first one in it's original scale
+- the second one the likelihood rescaled with the total Likelihoods
+They are the exact same in the looking, so I report the not scaled one, and the scaled 
+will be reported when I'll show the Prior and the Posterior together
+
+```{r, echo=F,  message=F, warning=F}
+barplot(Likelihood_P, col="green", main="Likelihood",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"))
+```
+
+I can proceed in constructing the Posterior
+
+- Prior x Likelihood
+
+```{r, echo=T,  message=F, warning=F}
+Numerator=rep(0,9)
+Denominator=0
+for(k in 1:length(theta)){
+  Numerator[k]=Prior_P[k]*Likelihood_P[k]
+  Denominator=Denominator+Numerator[k]
+}
+```
+
+## Posterior
+
+I build a vector for the posterior using the moltiplication made before, and I also
+insert a sum for check if the sum is 1, so that I know it's a valid probability law 
+and all it's correct
+
+```{r, echo=T,  message=F, warning=F}
+Posterior_P=rep(0,9)
+sum_for_checking=0
+for(h in 1:length(theta)){
+  Posterior_P[h]=Numerator[h]/Denominator
+  sum_for_checking=sum_for_checking+Posterior_P[h]
+}
+sum_for_checking
+Posterior_P
+```
+
+Now I create a graphical representation with only the Prior and the Posterior
+
+```{r, echo=F,  message=F, warning=F}
+
+matr_discrete_P=matrix(data=c(Prior_P,Posterior_P), 
+                     nrow=2, ncol=9, byrow=T)
+barplot(matr_discrete_P,col=c("yellow","brown"),beside=T, 
+        main="Discrete Prior and relative Posterior given the Likelihood",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"),
+        legend.text=c("Prior","Posterior"))
+```
+
+To see the effect of the likelihood on the Posterior and compare all three I
+put also the likelihood rescaled
+
+```{r, echo=F,  message=F, warning=F}
+matr_discrete_P_three=matrix(data=c(Prior_P,Likelihood_P_scaled_for_graph,
+                                    Posterior_P), 
+                       nrow=3, ncol=9, byrow=T)
+barplot(matr_discrete_P_three,col=c("yellow","green","brown"),beside=T, 
+        main="Discrete Prior and relative Posterior given the Likelihood",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"),
+        legend.text=c("Prior","Likelihood rescaled","Posterior"))
+```
+
+I can proceed with the Posterior functionals and relevant quantities:
+- the mean, not increased so much because the Prior is not so against the Likelihood
+- the variance 
+- the probability to draw a theta smaller or equal to 0.5. Now this one is 99.3% 
+- the median, that let behind it a probability to draw theta equal to 94%
+- the confidence region, that I built helping me with a graphical inspection: I saw that 
+the Posterior probability of the possible theta is high between 0.3 and 0.5, so I computed 
+a sum including all these and resulted 0.96; I got the Confidence Region (not exactly equal
+to 0.95 because we are in a discrete support): theta belongs to [0.3,0.5] with 96% of 
+probability
+
+```{r, echo=T,  message=F, warning=F}
+#Posterior mean
+E_Post_P=0
+for(i in 1:length(theta)){
+  E_Post_P=E_Post_P+theta[i]*Posterior_P[i]
+}
+E_Post_P
+
+#Posterior variance
+Var_Post_P=0
+for(i in 1:length(theta)){
+  Var_Post_P=Var_Post_P+((theta[i]-E_Post_P)^2)*Posterior_P[i]
+}
+Var_Post_P
+
+#Posterior probability of E0
+E0_Posterior_P=sum(Posterior_P[1:5])
+E0_Posterior_P
+
+#The median 
+Median_Posterior_P=(sum(Posterior_P[1:5])+sum(Posterior_P[1:4]))/2
+
+#Confidence Region
+CR_P=sum(Posterior_P[3:5])
+```
+
+## Prediction 
+The predictive is obtained doing the integral (or in this case the sum) of
+P(Ynew=1,theta|data), that is equal to sum(P(Ynew=1|theta,data)*P(theta|data))
+that make us conclude with sum(theta*p(theta|data)): it is the expected value  
+of the posterior!
+
+```{r, echo=T,  message=F, warning=F}
+Predictive_P=0
+for(i in 1:length(theta)){
+  Predictive_P=Predictive_P+theta[i]*Posterior_P[i]
+}
+Predictive_P
+SleepingWell_new_P=Predictive_P*20
+SleepingWell_new_P
+```
+
+For 20 new students we have that 7 will have slept more than 8 hours
+like more or less in the case 1 of the Beta-Bernoulli approach in both discrete
+and continuous cases
+
+## Evidence in favour of the data collected  
+
+Computing the BF to study the alternative events: 
+E0:={th ≤ 0.5} and E1:={th > 0.5}
+
+```{r, echo=T,  message=F, warning=F}
+E0_Prior_P
+E0_Posterior_P
+E1_Prior_P=sum(Prior_P[6:9])
+E1_Posterior_P=sum(Posterior_P[6:9])
+BF_P=(E0_Posterior_P/E1_Posterior_P)/(E0_Prior_P/E1_Prior_P)
+BFlog10_P=log10(BF_P)
+```
+
+Given that the Bayes Factor is 25.46104 (or, in log10, 1.405876), 
+I conclude that there is a strong data evidence in favor of E0 so in favor of 
+P(θ≤0.5|y_1:n): 
+the majority of my friends and student friends seems to don't sleep more than 8 hours.
+But the Likelihood has influenced the pessimistic Prior increasing the expected theta
+a little bit, so my data improved the A Priori point of view constructed at the start
+
+#CASE 2
+
+#Prior 
+
+Now the Prior is built to be like a Discrete Uniform distribution
+
+```{r, echo=T,  message=F, warning=F}
+theta=seq(0.1,0.9,by=0.1)
+Prior_P2=rep(1/9, 9)
+```
+
+Expected value and median only for completenss, but they're obvious. I calculated
+also E0, so the Prior probability to be less or equal to 0.5  
+
+```{r, echo=T,  message=F, warning=F}
+#Prior mean
+E_Prior_P2=0
+for(i in 1:length(theta)){
+  E_Prior_P2=E_Prior_P2+theta[i]*Prior_P2[i]
+}
+E_Prior_P2
+
+#Prior variance
+Var_Prior_P2=0
+for(i in 1:length(theta)){
+  Var_Prior_P2=Var_Prior_P2+((theta[i]-E_Prior_P2)^2)*Prior_P2[i]
+}
+Var_Prior_P2
+
+#Prior probability of E0
+E0_Prior_P2=sum(Prior_P2[1:5])
+E0_Prior_P2
+
+#Median
+Median_Prior_P2=(sum(Prior_P2[1:5])+sum(Prior_P2[1:4]))/2
+```
+
+## Likelihood
+Same procedure of case 1
+
+```{r, echo=T,  message=F, warning=F}
+sumy=14
+n=37
+Likelihood_P2=rep(0,9)
+for(i in 1:length(theta)){
+  Likelihood_P2[i]=theta[i]^sumy*(1-theta[i])^(n-sumy)
+}
+Likelihood_P_scaled_for_graph_2=rep(0,9)
+for(i in 1:length(theta)){
+  Likelihood_P_scaled_for_graph_2[i]=Likelihood_P2[i]/sum(Likelihood_P2[1:9])
+}
+```
+
+Plot of the Likelihood
+
+```{r, echo=F,  message=F, warning=F}
+
+barplot(Likelihood_P2, col="green", main="Likelihood",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"))
+```
+
+- Prior x Likelihood
+
+```{r, echo=T,  message=F, warning=F}
+Numerator2=rep(0,9)
+Denominator2=0
+for(k in 1:length(theta)){
+  Numerator2[k]=Prior_P2[k]*Likelihood_P2[k]
+  Denominator2=Denominator2+Numerator2[k]
+}
+```
+
+## Posterior
+No surprise, the procedure is the same to get the Posterior
+
+```{r, echo=T,  message=F, warning=F}
+
+Posterior_P2=rep(0,9)
+sum_for_checking2=0
+for(h in 1:length(theta)){
+  Posterior_P2[h]=Numerator2[h]/Denominator2
+  sum_for_checking2=sum_for_checking2+Posterior_P2[h]
+}
+sum_for_checking2
+Posterior_P2
+```
+
+To see the effect of the Likelihood on the Posterior given a uniform Prior
+I build a graph with Prior, Posterior and the rescaled Likelihood 
+
+```{r, echo=F,  message=F, warning=F}
+matr_discrete_P_three2=matrix(data=c(Prior_P2,Likelihood_P_scaled_for_graph_2,
+                                    Posterior_P2), 
+                             nrow=3, ncol=9, byrow=T)
+barplot(matr_discrete_P_three2,col=c("yellow","green","brown"),beside=T, 
+        main="Discrete Prior and relative Posterior given the Likelihood",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"),
+        legend.text=c("Prior","Likelihood rescaled","Posterior"))
+```
+
+Exactly like in the continuous case, the Likelihood and the Posterior coincides
+because of the uniform Prior
+
+Let's proceed with the Posterior functionals and relevant quantities:
+- the expected value, increased only a little bit more with respect to case 1, because here
+the Prior is uniform and has a mean of 0.5
+- the variance, almost the same as in the case 1 (0.0057 before vs 0.0059 now) 
+- With the 0.5 quantile now we have 98.7% probability to draw a theta smaller or equal to 0.5. 
+- the median, that With respect to case 1, now let behind it the 90% probability, 
+while in case 1 was a little bit more, 94%
+- for the Confidence Region I used the same philosophy of case 1 given that it's really 
+evident using a graph inspection: summing the theta = 0.3, 0.4 and 0.5 gives a Confidence
+Region of 0.96, almost equal to the one of case 1 (0.9 unit of difference)
+
+```{r, echo=T,  message=F, warning=F}
+#Posterior mean
+E_Post_P2=0
+for(i in 1:length(theta)){
+  E_Post_P2=E_Post_P2+theta[i]*Posterior_P2[i]
+}
+E_Post_P2
+
+#Variance
+Var_Post_P2=0
+for(i in 1:length(theta)){
+  Var_Post_P2=Var_Post_P2+((theta[i]-E_Post_P2)^2)*Posterior_P2[i]
+}
+Var_Post_P2
+
+#Quantiles
+E0_Posterior_P2=sum(Posterior_P2[1:5])
+E0_Posterior_P2
+
+#Median
+Median_Posterior_P2=(sum(Posterior_P2[1:5])+sum(Posterior_P2[1:4]))/2
+
+#Confidence Region
+CR_P2=sum(Posterior_P2[3:5])
+```
+
+## Prediction
+I proceed exactly like in case 1, calculating the vector "Predictive_P2" (essentialy, the 
+mean) 
+
+```{r, echo=T,  message=F, warning=F}
+Predictive_P2=0
+for(i in 1:length(theta)){
+  Predictive_P2=Predictive_P2+theta[i]*Posterior_P2[i]
+}
+Predictive_P2
+SleepingWell_new_P2=Predictive_P2*20
+SleepingWell_new_P2
+```
+
+For 20 new students we have that almost 8 will have slept more than 8 hours, 
+not a huge change with respect to case 1
+
+## Evidence in favour of the data collected 
+
+Computing BF to study the alternative events: 
+E0:={th ≤ 0.5} and E1:={th > 0.5}
+
+```{r, echo=T,  message=F, warning=F}
+E0_Prior_P2
+E0_Posterior_P2
+E1_Prior_P2=sum(Prior_P2[6:9])
+E1_Posterior_P2=sum(Posterior_P2[6:9])
+BF_P2=(E0_Posterior_P2/E1_Posterior_P2)/(E0_Prior_P2/E1_Prior_P2)
+BFlog10_P2=log10(BF_P2)
+```
+
+Given that the Bayes Factor is 60.99883 (or, in log10, 1.785322), 
+I conclude that there is a strong data (much more than in the case 1!) 
+evidence in favor of E0, so in favor of P(th≤0.5|y_1:n): 
+the majority of my friends and student friends don't sleep enough! Here the
+Likelihood has determined my analysis much more than in the case 1 because of
+the uniform Prior that is intended to be no informative
+
+#CASE 3
+
+#Prior 
+
+In this third case I build a Prior that results in an expected value of almost 7 and in
+a probability to draw a theta greater than 0.5 equals to 85
+
+```{r, echo=T,  message=F, warning=F}
+theta=seq(0.1,0.9,by=0.1)
+Prior_P3=c(0.002,0.008,0.022,0.028,0.09,0.18,0.26,0.25,0.16)
+
+#Prior mean
+E_Prior_P3=0
+for(i in 1:length(theta)){
+  E_Prior_P3=E_Prior_P3+theta[i]*Prior_P3[i]
+}
+E_Prior_P3
+
+#Prior variance
+Var_Prior_P3=0
+for(i in 1:length(theta)){
+  Var_Prior_P3=Var_Prior_P3+((theta[i]-E_Prior_P3)^2)*Prior_P3[i]
+}
+Var_Prior_P3
+
+#Prior probability of E0
+E1_Prior_P3=1-sum(Prior_P3[1:5])
+E1_Prior_P3
+```
+
+## Likelihood
+Like in the two previous cases, I get the Likelihood using the Bernoulli distribution
+and then I rescale it for a visual analysis
+
+```{r, echo=T,  message=F, warning=F}
+sumy=14
+n=37
+Likelihood_P3=rep(0,9)
+for(i in 1:length(theta)){
+  Likelihood_P3[i]=theta[i]^sumy*(1-theta[i])^(n-sumy)
+}
+Likelihood_P_scaled_for_graph3=rep(0,9)
+for(i in 1:length(theta)){
+  Likelihood_P_scaled_for_graph3[i]=Likelihood_P3[i]/sum(Likelihood_P3[1:9])
+}
+Likelihood_P_scaled_for_graph3
+```
+
+The graph of the Likelihood in his scale
+
+```{r, echo=F,  message=F, warning=F}
+barplot(Likelihood_P3, col="green", main="Likelihood",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"))
+```
+
+- Prior x Likelihood, so that I can get the Posterior distribution
+
+```{r, echo=T,  message=F, warning=F}
+Numerator3=rep(0,9)
+Denominator3=0
+for(k in 1:length(theta)){
+  Numerator3[k]=Prior_P3[k]*Likelihood_P3[k]
+  Denominator3=Denominator3+Numerator3[k]
+}
+```
+
+## Posterior
+Got it like in the two other cases
+
+```{r, echo=T,  message=F, warning=F}
+Posterior_P3=rep(0,9)
+sum_for_checking3=0
+for(h in 1:length(theta)){
+  Posterior_P3[h]=Numerator3[h]/Denominator3
+  sum_for_checking3=sum_for_checking3+Posterior_P3[h]
+}
+sum_for_checking3
+Posterior_P3
+```
+
+Now I create a graphical representation with only the Prior and the Posterior...
+
+```{r, echo=F,  message=F, warning=F}
+matr_discrete_P3=matrix(data=c(Prior_P3,Posterior_P3), 
+                       nrow=2, ncol=9, byrow=T)
+barplot(matr_discrete_P3,col=c("yellow","brown"),beside=T, 
+        main="Discrete Prior and relative Posterior given the Likelihood",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"),
+        legend.text=c("Prior","Posterior"))
+```
+
+... And with the Likelihood rescaled, to see the effect of the Likelihood on the Posterior 
+and compare all three 
+
+```{r, echo=F,  message=F, warning=F}
+matr_discrete_P_three=matrix(data=c(Prior_P3,Likelihood_P_scaled_for_graph3,
+                                    Posterior_P3), 
+                             nrow=3, ncol=9, byrow=T)
+barplot(matr_discrete_P_three,col=c("yellow","green","brown"),beside=T, 
+        main="Discrete Prior and relative Posterior given the Likelihood(rescaled)",
+        names.arg=c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9"),
+        legend.text=c("Prior","Likelihood rescaled","Posterior"))
+```
+
+The functionals and the relevant quantities:
+- the expected value is 0.43, is bigger than in the two previous cases, this is because the 
+adverse prior has influenced the Likelihood that was totally in the opposite half  
+- the variance is almost the same of the other two cases
+- #The median let behind it a probability to draw theta equal to 74%: much less than case 1 
+and 2
+-With the 0.5 quantile  now the probability to draw a theta smaller or equal to 
+0.5 is 93.9%, less than case 1 and 2
+- the Confidence Region: again, same philosophy of the two previous cases: 0.3, 0.4 and 0.5 
+are always the ones that gives me the Confidence Region I want, in this case a little bit
+smaller, of 93.4%
+
+```{r, echo=T,  message=F, warning=F}
+#Posterior mean
+E_Post_P3=0
+for(i in 1:length(theta)){
+  E_Post_P3=E_Post_P3+theta[i]*Posterior_P3[i]
+}
+E_Post_P3
+
+#Posterior variance
+Var_Post_P3=0
+for(i in 1:length(theta)){
+  Var_Post_P3=Var_Post_P3+((theta[i]-E_Post_P3)^2)*Posterior_P3[i]
+}
+Var_Post_P3
+
+#Posterior quantiles
+E0_Posterior_P3=sum(Posterior_P3[1:5])
+E0_Posterior_P3
+
+#Median
+Median_Posterior_P3=(sum(Posterior_P3[1:5])+sum(Posterior_P3[1:4]))/2
+
+#Confidence Region
+CR_P3=sum(Posterior_P3[3:5])
+```
+
+## Prediction
+
+Same procedure also here to find the predictive distribution: the Posterior mean is 
+also the predictive value to find the number of 20 sampled students that will have slept
+more than 8 hours
+
+```{r, echo=T,  message=F, warning=F}
+Predictive_P3=0
+for(i in 1:length(theta)){
+  Predictive_P3=Predictive_P3+theta[i]*Posterior_P3[i]
+}
+Predictive_P3
+SleepingWell_new_P3=Predictive_P3*20
+SleepingWell_new_P3
+```
+
+For 20 new students in this case we have that almost 9 will have slept more 
+than 8 hours
+
+## Evidence in favour of the data collected
+
+Computing BF to study the alternative events: 
+E0:={th ≤ 0.5} and E1:={th > 0.5}
+
+```{r, echo=T,  message=F, warning=F}
+E0_Prior_P3=sum(Prior_P3[1:5])
+E0_Posterior_P3
+E1_Prior_P3
+E1_Posterior_P3=sum(Posterior_P3[6:9])
+BF_P3=(E0_Posterior_P3/E1_Posterior_P3)/(E0_Prior_P3/E1_Prior_P3)
+BFlog10_P3=log10(BF_P3)
+```
+
+Given that the Bayes Factor is 86.70359 (or, in log10, 1.938037), 
+I conclude that there is a really strong data evidence in favor of E0, so in 
+favor of P(th≤0.5|y_1:n): 
+the majority of my friends and student friends don't sleep enough! The complete
+opposite Likelihood with respect to the Prior has driven the analysis towards 
+P(theta≤0.5|y_1:n), and has done it in such a strong way that the analysis says
+that such a Prior is completely wrong, given the data
+
+
+# MODEL 3
+
+# PRIOR ANALYSIS
+
+After some reasoning, I concluded that to see how the Prior density looks like, 
+it's necessary starting to sample from a Normal (c, s), then transform the 
+values we found in the theta, and finally to proceed with a Monte Carlo 
+estimation. To fill the table with all the values and then decide which 
+hyperparameters I should take, I've used a for loop. I report down there the
+procedure. But I want to talk also about the solution I found before this:
+at the start I was thinking to go in another way: to scale with 
+1/theta(1-theta), that is equivalent to exp(x)*(1-exp(-x)), the data sampled 
+from an rnorm, and after scaling them finding the theta with 1/(1+exp(-x_new))
+where the x_new were the data from rnorm(G, c, s) rescaled with 
+exp(y)*(1-exp(-y)). But after some considerations and tries I concluded 
+that the 1/theta(1-theta) is a multiplicative factor that leads to a 
+logit-normal distribution, of which I found there is no analytic solution, 
+so I believe that the procedure should be slightly different and I only needed
+to sample from rnorm(G, c, s), then finding the theta with theta=1/(1+exp(-x)),
+and finally go with a Monte Carlo integration. Anyway I attach at the final of the R code
+an example of my first attempt
+
+I use a for loop to create the two tables, one with the Expected Values and one of the
+probabilities to draw a theta smaller or equal to 0.5
+
+```{r, echo=T,  message=F, warning=F}
+#setting the hyperparameters as vector
+s=c(4,1,0.1)
+c=c(-1,0,1)
+
+#Initializing the matrices
+tab_E_th=matrix(nrow=3, ncol=3)
+tab_E_th_lessthan_0.5=matrix(nrow=3, ncol=3)
+G=50000
+
+#fill the table with all the values
+for (i in 1:length(c)){
+  for (j in 1:length(s)){
+    set.seed(137)
+    x=rnorm(G, mean=c[i], sd=s[j])
+    theta=1/(1+exp(-x))
+    tab_E_th[j,i]=mean(theta)
+    tab_E_th_lessthan_0.5[j,i]=mean(theta<0.5)
+  }
+}
+```
+
+Table of the Expected Values
+```{r, echo=T,  message=F, warning=F}
+round(tab_E_th,3)
+```
+
+Table of the probabilities to draw a theta smaller or equal to 0.5
+```{r, echo=T,  message=F, warning=F}
+round(tab_E_th_lessthan_0.5,3)
+```
+
+# CASE 1
+
+Among all hyperparameters I choose the one that gives values
+E(th)=0.30, P(th<=0.5)=0.84, (c=-1, s=1), that because the mean reflects 
+exactly the "Prior information" section, and the probability to draw values
+less or equal to 0.5 is almost 85%, as discussed, again, in "Prior information" 
+section
+
+I start from sampling the x from a normal distribution with parameters c, s
+
+```{r, echo=T,  message=F, warning=F}
+c=-1
+s=1
+G=50000
+set.seed(137)
+x=rnorm(G,c,s)
+hist(x)
+```
+
+Those plots are the x
+
+I then transform the theta
+
+```{r, echo=T,  message=F, warning=F}
+#transforming the theta
+theta=1/(1+exp(-x))
+hist(theta, freq=F)
+```
+
+I obtain this distribution
+
+Now it's time to sample from the distribution and proceed with a Monte Carlo estimation
+of E(theta) and P(theta<=0.5)
+
+```{r, echo=T,  message=F, warning=F}
+eta_g_Prior=mean(theta)
+eta_g_Prior
+
+Prior_E0=mean(theta<0.5)
+Prior_E0
+```
+
+I compute the running mean and check the convergence
+
+```{r, echo=T,  message=F, warning=F}
+cms=cumsum(theta)
+plot(1:G,cms/1:G,type="b",ylim=c(0,1),main="cumulative mean")
+abline(h=eta_g_Prior,lwd=2,col="magenta")
+```
+
+## MH algorithm
+
+Firstly, I have those data (sample size, students who sleep more than 8 hours)
+
+```{r, echo=T,  message=F, warning=F}
+n=37
+sumy=14
+sample_mean=sumy/n
+sample_mean
+```
+
+With a bit of algebra I found the logarithm version of the posterior, so now 
+I implement a function to compute the log(posterior), that is the target
+
+```{r, echo=T,  message=F, warning=F}
+model_log_post=function(theta,n,sumy,c,s){
+  if(theta<0|theta>1){
+    return(-Inf)
+  }
+  out=(sumy-1)*log(theta)+(n-sumy-1)*log(1-theta)-log(s)-
+    1/2*log(2*3.14)-1/(2*s^2)*(log(theta/(1-theta))-c)^2
+  return(out)
+}
+```
+
+To have an idea of the posterior distribution in log terms I build this graph, and for
+all the thetas I obtain this representation: it can be read as a graph where we look for
+the maximum value (Maximum Log-Likelihood) but in terms of the Posterior, so 
+Likelihood*Prior
+
+```{r, echo=T,  message=F, warning=F}
+#try to have an idea of the distribution
+gr_th=seq(0,1,by=0.001)
+post_grid=c()
+for(i in 1:length(gr_th)){
+    post_grid[i]=model_log_post(gr_th[i],n,sumy,c,s)
+}
+#posterior distribution
+plot(gr_th,post_grid,lwd=3,col="magenta")
+```
+
+Now I build a MH function to implement a MH algorithm to draw a MCMC sample, 
+which invariant distribution is equal to the one found before, setting 
+a random walk
+steps:
+- Set the number of iterations: iterations=burnin+thin*G, g=1.
+- Define the output vector: theta_out=numeric(length=G)
+and the current state of the chain: theta0, setting it equal to 0.5.
+- Setting numbers of acceptances to count how many times I accept a transition
+Start of the real algorithm! 
+1. For loop where I insert a random walk to draw the proposal and specify that
+if we propose a negative value or a value bigger than 1, we cannot accept it.
+2. Compute the probability a, that is the probability to accepts the newly
+proposed state (prop_state) given that it currently is in current state
+(current_state), in logarithm scale; rejecting values outside (0,1).
+3. Drawing from a Uniform and decide if to accept or reject by comparing 
+the log of the uniform with the log of the a. We increase the counter 
+"acceptance" when we accept.
+After all this, if the iteration is larger than the burn-in and if it is 
+a multiple of the thinning, we save the current_state. 
+
+```{r, echo=T,  message=F, warning=F}
+MH_algorithm=function(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5){
+  iterations=burnin+thin*G
+  g=1
+  theta=vector("numeric",length=G)
+  current_state=theta0
+  acceptance=0;
+  for(iter in 1:iterations) {
+    epsilon=rnorm(1,mean=0,sd=sigma)
+    prop_state=current_state+epsilon
+    if(prop_state<0|prop_state>1){
+      l_a=-Inf
+      }else{
+        l_a=min(0,(model_log_post(prop_state,n,sumy,c,s))-
+              (model_log_post(current_state,n,sumy,c,s)))
+      }
+    l_u=log(runif(1))
+    if(l_u<l_a){
+      current_state=prop_state
+      acceptance=acceptance+1
+    }
+    if((iter>burnin)&(iter%%thin==0)){
+      theta[g]=current_state
+      g=g+1
+    }
+  }
+  cat("Acceptance rate=",acceptance/iterations,"\n")
+  return(theta)
+}
+```
+
+Now I try to find optimal variance letting G and thin small, while burnin relatively high
+
+- First try
+
+```{r, echo=T,  message=F, warning=F}
+set.seed(137)
+G=2000
+burnin=1000
+thin<- 1
+sigma=1
+th_trysample1=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample1)
+var(th_trysample1)
+sqrt(var(th_trysample1))
+```
+
+Graphical inspectionrap
+
+```{r, echo=T,  message=F, warning=F}
+par(mfrow=c(1,2))
+#trace plot
+plot(th_trysample1,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample1,ylim=c(0,1))
+```
+
+A lot of autocorrelation can be observed, and the acceptance rate is low
+
+- Second try
+
+```{r, echo=T,  message=F, warning=F}
+set.seed(137)
+sigma=sqrt(var(th_trysample1))
+th_trysample2=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample2)
+var(th_trysample2)
+sqrt(var(th_trysample2))
+```
+
+Graphical inspection
+
+```{r, echo=T,  message=F, warning=F}
+#trace plot
+plot(th_trysample2,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample2,ylim=c(0,1))
+```
+
+Not good at all, I accept too much and the autocorrelation is still high. 
+I try to increase the G and the thinning a bit
+
+-Third try
+
+```{r, echo=T,  message=F, warning=F}
+set.seed(137)
+G=5000
+burnin=1000
+thin<- 5
+sigma=sqrt(var(th_trysample2))
+th_trysample3=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample3)
+var(th_trysample3)
+sqrt(var(th_trysample3))
+```
+
+Graphical inspection
+
+```{r, echo=T,  message=F, warning=F}
+#trace plot
+plot(th_trysample3,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample3,ylim=c(0,1))
+```
+
+Much better in terms of autocorrelation, but the acceptance rate is too high
+I try a fourth try always with an adaptive MH, using the variance of the 
+previous chain
+
+- Fourth try
+
+```{r, echo=T,  message=F, warning=F}
+set.seed(137)
+G=5000
+burnin=1000
+thin<- 5
+sigma=sqrt(var(th_trysample3))
+th_trysample4=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample4)
+var(th_trysample4)
+```
+
+Graphical inspection
+
+```{r, echo=T,  message=F, warning=F}
+#trace plot
+plot(th_trysample4,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample4,ylim=c(0,1))
+```
+
+Really good in terms of autocorrelation, but again the acceptance is really
+high. Given that increasing slowly the sigma decreases slowly the acceptance 
+rate, now instead of an adaptive MH I put manually a bigger sigma manually 
+and see what happens, try to not going too far from the previous chain's sigma  
+
+- Fifth try
+
+```{r, echo=T,  message=F, warning=F}
+set.seed(137)
+G=5000
+burnin=1000
+thin<- 10
+sigma=0.1
+th_trysample5=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample5)
+var(th_trysample5)
+```
+
+Graphical inspection
+
+```{r, echo=T,  message=F, warning=F}
+#trace plot
+plot(th_trysample5,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample5,ylim=c(0,1))
+```
+
+I'm getting closer! Really good in terms of autocorrelation! I increase again
+the sigma
+
+- Sixth try
+
+```{r, echo=T,  message=F, warning=F}
+set.seed(137)
+G=5000
+burnin=1000
+thin<- 10
+sigma=0.3
+th_trysample6=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample6)
+var(th_trysample6)
+```
+
+Graphical inspection
+
+```{r, echo=T,  message=F, warning=F}
+#trace plot
+plot(th_trysample6,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample6,ylim=c(0,1))
+```
+
+I'm there! I try to play a little bit more with the sigma to obtain around 
+0.234 value of the acceptance rate
+
+- Seventh try
+
+```{r, echo=T,  message=F, warning=F}
+set.seed(137)
+G=5000
+burnin=1000
+thin<- 10
+sigma=0.391
+th_trysample7=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample7)
+var(th_trysample7)
+```
+
+Graphical inspection
+
+```{r, echo=T,  message=F, warning=F}
+#trace plot
+plot(th_trysample7,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample7,ylim=c(0,1))
+```
+
+Perfect acceptance rate (0.234) and very little presence of autocorrelation!
+
+Now I perform the Bayesian analysis
+
+## Bayesian analysis
+
+I set the posterior distribution equal to the one I found at the seventh try
+
+```{r, echo=T,  message=F, warning=F}
+th_Post=th_trysample7
+```
+
+## Functionals
+
+I compute the functionals from the distribution: the MC part of the MCMC! (Which MC?
+The Monte Carlo!)
+
+I got a mean of 0.366, increased with respect to the Prior mean. The reason is always 
+in how the Likelihood magnitudes interfers with the Prior knowledge
+
+```{r, echo=T,  message=F, warning=F}
+#Posterior mean
+eta_g_Post=mean(th_Post)
+eta_g_Post
+
+#Posterior variance
+PostVar=var(th_Post)
+PostSD=sqrt(PostVar)
+PostVar
+PostSD
+```
+
+## Graphical analysis
+
+```{r, echo=T,  message=F, warning=F}
+par(mfrow=c(1,1))
+plot(th_Post,type="l", main="theta")
+acf(th_Post,ylim=c(0,1), main="Autocorrelation of theta chain")
+hist(th_Post,nclass="fd",freq=F,main="Posterior density of theta",col="green")
+#kernel density
+lines(density(th_Post),col="black",lwd=3)
+```
+
+Here I have the Posterior density of the theta, that is approximately a normal centered
+at his posterior mean, the one found with the Monte Carlo estimation on the Markov Chain
+
+## The quantiles and their graphical representation on the Posterior density
+
+```{r, echo=T,  message=F, warning=F}
+#Posterior quantile
+quantile(th_Post,prob=c(0.025,0.5,0.975))
+hist(th_Post,nclass="fd",freq=F,main="Posterior density of theta",col="green")
+abline(v=quantile(th_Post,prob=0.025),col="red",lty=2,lwd=3)
+abline(v=quantile(th_Post,prob=0.5),col="red",lty=2,lwd=3)
+abline(v=quantile(th_Post,prob=0.975),col="red",lty=2,lwd=3)
+```
+
+Those are the three quantiles of interest: the Confidence Region lies in between
+0.273 and 0.569.   
+The median is very close to the mean.
+
+## Predictive analysis
+This time I sample from a random binomial with posterior theta as parameter, and
+then I compute the Monte Carlo estimation of the mean to get the predictive distribution
+
+```{r, echo=T,  message=F, warning=F}
+y_star <- vector(length=G)
+for(g in 1:G){
+  y_star[g]=rbinom(1,1,th_Post[g])
+}
+SleepingWellPrediction=mean(y_star)*20
+SleepingWellPrediction
+```
+
+For 20 new sampled students, given the posterior distribution, the prediction
+says that only 7 students will have slept more than 8 hours
+
+## BAYES FACTOR
+
+```{r, echo=T,  message=F, warning=F}
+Prior_E0
+Post_E0=mean(th_Post<0.5)
+Prior_E1=1-Prior_E0
+Post_E1=1-Post_E0
+BayesFactor=(Post_E0/Post_E1)/(Prior_E0/Prior_E1)
+BayesFactor_log10=log10(BayesFactor)
+```
+
+The BF results 4.288442 (in log10 0.6322996): this indicates that there exists
+a substantial data evidence in favor of the event E0, so in favor of saying 
+that the majority of the students (and my friends) don't sleep more than eight 
+hours: but respect to the prior my data suggest a little more optimistic view.
+To note that the BF is slightly over the threshold of not worth more than a 
+bare mention, so the strongness of my little research should not be taken as 
+very representative of the reality
+
+# CASE 2
+
+Among all hyperparameters I choose the one that gives values
+E(th)=0.5, P(th<=0.5)=0.5, to have a very vague information, similar to the 
+one that a uniform prior will give to me.
+But in fact they are three: all the pairs with c=0 give the same result. 
+So, between those, I was trying to decide between the one with s=4 and with 
+s=1, (not s=0.1 because with such a small variance is less vague than the 
+others). Initially I was more for choosing the pair (c=0, s=4) because is the 
+one with the larger variance, hence it is the less informative intuitively.
+But after seeing the histogram of the theta, I realized this hyperparameters
+choice was too strong and was leading too much on the results 0 or 1, giving
+much less importance to the one in the middle. So I took the other choice:
+the pair (c=0, s=1), that give a more or less normal Prior distribution of the
+theta, but with a lot of uncertainty, so I think is the vaguest possible among
+the choices I have
+
+I now work on the Prior, drawing them from the distribution like before, after the 
+transformation, and computing the Monte Carlo estimation for Mean and probability 
+to be less or equal than 0.5
+
+```{r, echo=T,  message=F, warning=F}
+c=0
+s=1
+G=50000
+set.seed(137)
+x=rnorm(G,c,s)
+hist(x)
+
+#transforming the theta
+theta=1/(1+exp(-x))
+
+#Monte Carlo estimation of mean and P(theta<=0.5)
+eta_g_Prior=mean(theta)
+eta_g_Prior
+Prior_E0=mean(theta<0.5)
+Prior_E0
+```
+
+Computing again the running mean and the check of the convergence
+
+```{r, echo=T,  message=F, warning=F}
+cms=cumsum(theta)
+plot(1:G,cms/1:G,type="b",ylim=c(0,1),main="cumulative mean")
+abline(h=eta_g_Prior,lwd=2,col="magenta")
+```
+
+## MH algorithm
+
+The formula of the log(Posterior) doesn't change, and neither the function for the MH,
+so I only give a graphical representation of the log(Posterior) (almost identical to the 
+one) of the first case)
+
+```{r, echo=T,  message=F, warning=F}
+gr_th=seq(0,1,by=0.001)
+post_grid=c()
+for(i in 1:length(gr_th)){
+  post_grid[i]=model_log_post(gr_th[i],n,sumy,c,s)
+}
+#posterior distribution
+plot(gr_th,post_grid,lwd=3,col="magenta")
+```
+
+Given the fact that all the MH and the search for the optimal MCMC with this method
+is almost identical, I don't report it here because it will be very long. Everything
+is in the R code (see from line 1231)
+
+I report directly only the last succesfull try
+
+```{r, echo=T,  message=F, warning=F}
+#Seventh try
+set.seed(137)
+G=5000
+burnin=1000
+thin<- 10
+sigma=0.396
+th_trysample7=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample7)
+var(th_trysample7)
+#Graphical inspection
+#trace plot
+plot(th_trysample7,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample7,ylim=c(0,1))
+```
+
+Perfect acceptance rate (0.234) and very little presence of autocorrelation!
+
+## Bayesian analysis
+
+I report:
+- Posterior mean, increased from case 1
+- Posterior variance
+- Posterior quantiles, that shifted to the right, and their graphical representation
+
+```{r, echo=T,  message=F, warning=F}
+th_Post=th_trysample7
+#Posterior mean
+eta_g_Post=mean(th_Post)
+eta_g_Post
+
+#Posterior variance
+PostVar=var(th_Post)
+PostSD=sqrt(PostVar)
+PostVar
+PostSD
+
+#Posterior quantile
+quantile(th_Post,prob=c(0.025,0.5,0.975))
+hist(th_Post,nclass="fd",freq=F,main="Posterior density of theta",col="green")
+abline(v=quantile(th_Post,prob=0.025),col="red",lty=2,lwd=3)
+abline(v=quantile(th_Post,prob=0.5),col="red",lty=2,lwd=3)
+abline(v=quantile(th_Post,prob=0.975),col="red",lty=2,lwd=3)
+```
+
+## Graphical representation of the density
+
+```{r, echo=T,  message=F, warning=F}
+par(mfrow=c(1,1))
+plot(th_Post,type="l", main="theta")
+acf(th_Post,ylim=c(0,1), main="Autocorrelation of theta chain")
+hist(th_Post,nclass="fd",freq=F,main="Posterior density of theta",col="green")
+#kernel density
+lines(density(th_Post),col="black",lwd=3)
+```
+
+#Predictive analysis
+
+Same philosophy of case 1
+
+```{r, echo=T,  message=F, warning=F}
+y_star <- vector(length=G)
+for(g in 1:G){
+  y_star[g]=rbinom(1,1,th_Post[g])
+}
+SleepingWellPrediction=mean(y_star)*20
+```
+
+For 20 new sampled students, given the posterior distribution, the prediction
+says that almost 8 students will have slept more than 8 hours
+
+## Bayes Factor
+
+```{r, echo=T,  message=F, warning=F}
+Prior_E0
+Post_E0=mean(th_Post<0.5)
+Prior_E1=1-Prior_E0
+Post_E1=1-Post_E0
+BayesFactor=(Post_E0/Post_E1)/(Prior_E0/Prior_E1)
+BayesFactor_log10=log10(BayesFactor)
+```
+
+The BF results 12.08579 (in log10 1.082275): this indicates that there exists
+a strong data evidence in favor of the event E0, so in favor of saying 
+that the majority of the students (and my friends) don't sleep more than eight 
+hours: respect to case 1 this is a good improvement in the significance
+of my research.
+
+# CASE 3
+
+For this one, I will choose the pair (c=1, s=1) because it gives me a mean of 
+the Prior equal to 0.7 and, maybe even more important, a probability to 
+observe a theta greater than 0.5 that is (1-0.15882), so is 84%: almost the 
+exact opposite than what was discussed in "Prior information"!
+
+I follow the exact same procedure, so I implement again the MCMC procedure
+I report only the relevant parts, with the code and some interesting graphs.
+To note that now the distribution of the Prior theta is opposite to the one
+of case 1, and reflect the other cases 3 of the previous two models.
+
+```{r, echo=T,  message=F, warning=F}
+c=1
+s=1
+G=50000
+set.seed(137)
+x=rnorm(G,c,s)
+hist(x)
+
+#transforming the theta
+theta=1/(1+exp(-x))
+
+#Monte Carlo estimation of mean and P(theta<=0.5)
+eta_g_Prior=mean(theta)
+eta_g_Prior
+Prior_E0=mean(theta<0.5)
+Prior_E0
+Density_th_Prior=hist(theta, freq=F)
+
+#running mean and convergence
+cms=cumsum(theta)
+plot(1:G,cms/1:G,type="b",ylim=c(0,1),main="cumulative mean")
+abline(h=eta_g_Prior,lwd=2,col="magenta")
+```
+
+As before, for have an idea of the distribution of the log(Posterior), I report the plot,
+very very similar to the other two cases, as expected, exactly like the posterior
+distributions found in the first two models: slightly different because of the different
+Priors, but very similar each other because of the magnitude of the Likelihood
+
+```{r, echo=T,  message=F, warning=F}
+gr_th=seq(0,1,by=0.001)
+post_grid=c()
+for(i in 1:length(gr_th)){
+  post_grid[i]=model_log_post(gr_th[i],n,sumy,c,s)
+}
+#posterior distribution
+plot(gr_th,post_grid,lwd=3,col="magenta")
+```
+
+Here I report the final distribution after all the iterations of the MH.
+Every step is in the code.
+
+```{r, echo=T,  message=F, warning=F}
+#Seventh try
+set.seed(137)
+G=5000
+burnin=1000
+thin<- 10
+sigma=0.405
+th_trysample7=MH_algorithm(G,burnin,thin,n,sumy,c,s,sigma,theta0=0.5)
+mean(th_trysample7)
+var(th_trysample7)
+
+#Graphical inspection
+#trace plot
+plot(th_trysample7,type="l",main="theta")
+#Autocorrelation plot:
+acf(th_trysample7,ylim=c(0,1))
+#Perfect acceptance rate (0.234) and very little presence of autocorrelation!
+```
+
+## Bayesian analysis
+
+I report:
+- Posterior mean, increased again with respect to cases 1 and 2, always for the Prior
+influence
+- Posterior variance
+- Posterior quantiles, that shifted to the right another bit, and their graphical 
+representation
+
+```{r, echo=T,  message=F, warning=F}
+th_Post=th_trysample7
+#Posterior mean
+eta_g_Post=mean(th_Post)
+eta_g_Post
+#Posterior variance
+PostVar=var(th_Post)
+PostSD=sqrt(PostVar)
+PostVar
+PostSD
+
+#Posterior quantile
+quantile(th_Post,prob=c(0.025,0.5,0.975))
+hist(th_Post,nclass="fd",freq=F,main="Posterior density of theta",col="green")
+abline(v=quantile(th_Post,prob=0.025),col="red",lty=2,lwd=3)
+abline(v=quantile(th_Post,prob=0.5),col="red",lty=2,lwd=3)
+abline(v=quantile(th_Post,prob=0.975),col="red",lty=2,lwd=3)
+```
+
+## Graphical representation of the density
+
+```{r, echo=T,  message=F, warning=F}
+par(mfrow=c(1,1))
+plot(th_Post,type="l", main="theta")
+acf(th_Post,ylim=c(0,1), main="Autocorrelation of theta chain")
+hist(th_Post,nclass="fd",freq=F,main="Posterior density of theta",col="green")
+#kernel density
+lines(density(th_Post),col="black",lwd=3)
+```
+
+## Predictive analysis
+
+```{r, echo=T,  message=F, warning=F}
+y_star <- vector(length=G)
+for(g in 1:G){
+  y_star[g]=rbinom(1,1,th_Post[g])
+}
+SleepingWellPrediction=mean(y_star)*20
+```
+
+For 20 new sampled students, given the posterior distribution, the prediction
+says that 8 students will have slept more than 8 hours; a little bit more than
+in case 2 where I also stated 8 students, but it was an approximation: the 
+real number was 7.6
+
+## Bayes Factor
+
+```{r, echo=T,  message=F, warning=F}
+Prior_E0
+Post_E0=mean(th_Post<0.5)
+Prior_E1=1-Prior_E0
+Post_E1=1-Post_E0
+BayesFactor=(Post_E0/Post_E1)/(Prior_E0/Prior_E1)
+BayesFactor_log10=log10(BayesFactor)
+```
+
+The BF results 33.36368 (in log10 1.523274): this indicates that there exists
+a strong data evidence in favor of the event E0, so in favor of saying 
+that the majority of the students (and my friends) don't sleep more than eight 
+hours: respect to case 2 this is even a stronger improvement in my research
+significance
+
+
+
+
+
+
+

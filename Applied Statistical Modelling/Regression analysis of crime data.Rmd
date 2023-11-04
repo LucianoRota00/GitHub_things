@@ -1,0 +1,891 @@
+---
+title: "Luciano_Rota_Applied_Regression"
+author: "Luciano Rota"
+date: "2023-01-12"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is my report for the linear regression assignment. I will provide the answer
+to the four questions, point by point, summarized, with chunks of code and some
+explanations. The detailed code will be, clearly, in the code sent apart. 
+
+## QUESTION 1
+
+Firstly, after importing the dataset "crime.txt" on R, I first took a look at the 
+datas to understanding a bite the size and what was to be analized.
+Then, staying stick to the notation provided by the professor, I defined the response
+variable y as the last column "y" of the dataset, named Dati.
+The y's were transformed in log(y) because of the assignment's requirement of the model, 
+I guess the motivation was to try to reduce heteroskedasticity (transforming the response
+in logarithm has the effect to reduce error's heteroskedasticity).
+After that, I removed the last column of Dati to create X, matrix of covariates, and 
+transformed it in a design matrix: `Xm=model.matrix(lny~X, data=Dati)` with its dimensions
+`n=nrow(Xm)`, `p=ncol(X)`(NB: p is the number of covariates without intercept).
+After that I finally could compute the OLS estimates of the coefficients, by first
+squaring the model matrix, inverting it and finally, applying the minimization of 
+the RSS (or the maximization of the Likelihood) I could obtain the Beta's.
+
+```r
+XtX=t(Xm)%*%Xm
+XtXminus1=solve(XtX)
+betaj=XtXminus1%*%t(Xm)%*%lny
+betaj
+```
+Once obtained the estimated betas, I defined the predicted y's, so that I could
+compute firstly the residual, secondly the RSS, and then the Standard Error, 
+that can make me doing all the analysis.  
+
+- I multiplied the design matrix with the coefficients
+```r
+h_lny=(Xm)%*%betaj
+```
+- I obtained the residuals
+```r
+h_e=lny-h_lny
+```
+
+- The Residual Sum of Squares
+```r
+RSS=sum((h_e)^2)
+[1] 599.6163
+```
+
+- The Variance and the Standard Error
+```r
+SIGMA2=RSS/(n-p-1)
+[1] 0.3204791
+VarBetaj=SIGMA2*diag(XtXminus1)
+SE=sqrt(VarBetaj)
+```
+
+### First point
+95% Confidence Interval
+Now I have all the ingredients to build the confidence interval.
+I Implemented a for loop to compute the confidence interval at level 95%
+
+
+```r
+for(i in 1:length(betaj)){
+  low[i]=betaj[i]-qt(1-0.025, df=n-p-1)*SE[i]
+  up[i]=betaj[i]+qt(1-0.025, df=n-p-1)*SE[i]
+  ConfInt[i,1]=low[i]
+  ConfInt[i,2]=up[i]
+}
+```
+
+### Second point
+For each j=0, 1,..., p I computed the p-value of the test for the problem
+H0: beta_j=0; H1: beta_j!=0
+For computing the P-Value:
+
+-Standardize all the beta for the t statistics
+```r
+for(i in 1:length(betaj)){
+  t_value[i]=betaj[i]/SE[i]
+} 
+```
+
+-Computing the p-value 
+```r
+for(i in 1:length(betaj)){
+  p_value[i]=2*min((1-pt(t_value[i], df=n-p-1)), 
+               (pt(t_value[i], df=n-p-1)))
+}
+```
+
+### Third point            
+With the p-values of the vector of Beta I could see which ones, with a level of 
+significance for each test of 0.05, I could not reject the null hypothesis 
+H0: beta_j=0
+To obtain the number of covariates with a high p-value:
+
+```r
+for(i in 1:length(p_value)){
+  High_p_value[i,1]=i
+  if (p_value[i]>0.05){
+    High_p_value[i,2]=p_value[i]
+  }
+}
+High_p_value_as_logic_vector=!is.na(High_p_value[,2])
+High_p_value_as_vector=ifelse(High_p_value_as_logic_vector==T,1,0)
+n_covariates_to_not_reject=sum(High_p_value_as_vector)
+[1] 105
+```
+I had to accept the null hypothesis (bj=0) with 5% level of significance for 105 covariates!
+Only for those covariates I could reject the null (I indicate their vector coordinates):
+2, 7, 12, 13, 17, 21, 39, 41, 46, 51, 52, 57, 63, 74, 77, 84, 93, 117
+
+### Fourth point
+The deviance decomposition, defined as TSS=ESS+RSS, can be obtained in such this way
+
+- Computing RSS, that I already have: real y's-predicted y's
+```r
+RSS
+[1] 599.6163
+```
+
+- Computing the mean of my estimated log(y)s (that is the same as the observed one)
+```r
+bar_h_lny=mean(h_lny)
+bar_lny=mean(lny)
+all(round(bar_h_lny-bar_lny,9)==0)
+[1] -1.851175
+```
+
+- Computing the ESS, so predicted responses-mean of responses
+```r
+ESS=sum((h_lny-bar_h_lny)^2)
+[1] 1392.772
+```
+
+- Finally, the TSS, equal to ESS+RSS, or to observed responses-mean of responses
+```r
+TSS=ESS+RSS
+#or
+TSS_2=sum((lny-bar_h_lny)^2)
+[1] 1992.389
+```
+
+- I was now able to get the R squared, that is very high, so the model explains a
+lot of the variance. But we have to take care: there are a lot of explanatory variables!
+In fact, we should take care of this index if considering such a type of model like this
+```r
+R2=ESS/TSS
+#or
+R2_2=1-RSS/TSS
+[1] 0.6990465
+```
+Given that we are talking about multiple, and not simple, regression, I also wanted
+rapidly to compute the F-statistic, just to see if at least one of the coefficients
+is different from zero, and it result a value bigger than 1, not hundreds of times
+bigger but it is enough because we have a large n
+```r
+F_stat=((TSS-RSS)/p)/((RSS)/(n-p-1))
+[1] 35.62219
+```
+
+### CORRELATION AMONG COVARIATES    
+Having that I had to consider the covariates without 1s, I took X and not Xm, and then 
+I standardized it
+```r
+Xstd=as.matrix(scale(X))
+```
+
+Given that the empirical covariance of X equals the empirical correlation matrix
+because of the zero mean I defined the correlation matrix
+```r
+corrXstd=cor(Xstd)
+```
+
+## QUESTION 2                
+I decided to use the ggcorrplot to proceed with a graphical inspection because the 
+r-base corrplot simply didn't look nice to me
+
+- I plotted the correlation of the scaled matrix
+
+```{r corrXstd, echo=FALSE, message=F, warning=F}
+library(ggcorrplot)
+Dati=read.table("C:/Users/lucia/Desktop/AppStatMod/crime.txt",header=T,sep=";")
+y=Dati$y
+lny=log(y)
+Dati$y=NULL
+X=Dati
+X=as.matrix(X)
+Xstd=as.matrix(scale(X))
+corrXstd=cor(Xstd)
+ggcorrplot(corrXstd)
+```
+
+- For a deeper and nicer analysis, after computing the p-value matrix, I made another graph,
+removing one "triangle" from the matrix, given that is symmetric so not important,
+and including "x" signs where there were no statistical significance. 
+Once obtained this second graph (not reported here),for a clearer visual inspection, 
+to find easily eventual multicollinearity, I made also a cluster ordering 
+
+```{r, echo=FALSE, message=F, warning=F}
+p_value_mat=cor_pmat(Xstd)
+ggcorrplot(corrXstd, hc.order=T, type="lower", p.mat=p_value_mat)
+```
+
+A brief comment:
+
+visually, I can understand that there are two main problems:
+
+1. There are a lot of not significant coefficients 
+
+2. Many covariates are highly correlated, so there exists an imperfect
+multicollinearity: this will inflate a lot the standard error! The probability
+of detecting a non zero coefficients is highly decreased by collinearity, and so this
+explain the reason behind the first problem, so why the vast majority of the variables 
+have a high p-value.
+
+Those two problems (or, better, the second problem, because the first is with high
+probability a derivation of the multicollinearity) leads to one conclusion: 
+we can and must simplify the model (1) cutting off all the unuseful covariates 
+so that we can reduce the standard error and also make more interpretable our model.
+
+It must be followed the Occam's razor principle!
+
+Another thing: the additive assumption is not valid, so we should also study more deeply
+our data, finding which covariates have a relationship, and combining them.
+This would be a nice work but it'll take too much time for the deadline of the
+assignment, so I didn't proceed with that.
+
+# MODEL SELECTION 
+
+## QUESTION 3  
+
+### First point: Subset selection     
+
+The best subset selection works in this way:
+1. Fit all the (p!/k!(p-k)!) models that contain k covariates
+2. Identify the best models for each size k of the covariates using RSS
+3. Choose the best among the best models for each size k basing our choice on
+the smallest AIC, BIC or the highest adjusted R2, not the R2 because of
+the different sizes, or also making cross validation.
+For the best subset selection we would have to estimate 2^p number of sub-models, so:
+```{r, echo=F, message=F, warning=F}
+p=ncol(X)
+```
+```{r, echo=T, message=F, warning=F}
+n_sub_models=2^p
+n_sub_models
+```
+A huge, huge, number.
+I also tried to estimate how much time my pc would take to perform this algorithm.
+I firstly didn't know how to proceed, but after some researches I found that a good
+method was taking into account the exponential growth law, so I proceed in this way
+```{r, echo=T, message=F, warning=F}
+#install.packages("leaps")
+library(leaps)
+```
+
+- I first tried with the initial values, creating a new dataset for having the 
+initial measures of the Best Subset Selection and see if everything worked
+```{r, echo=T, message=F, warning=F}
+Datii=Dati[,-c(3:123)]
+start_time=Sys.time()
+sub.fit<-regsubsets(lny~.,Datii, really.big=T)
+end_time=Sys.time()
+end_time-start_time
+```
+
+- Seeing that all worked, I proceeded with this philosophy, so I measured from the 21st
+to the 74th (not from the first cause it was negligible the time, I wanted k subset of 
+significative time length) with the for loop to have some values in a range that 
+could give me interesting measures (I don't suggest to execute it because it will take a lot 
+of time, I report the results commented)
+```r
+x_How_much_time=c()
+ for (i in 21:74){
+   Datii=Dati[,-c(i:123)]
+   start_time=Sys.time()
+   sub.fit<-regsubsets(lny~.,Datii, really.big=T)
+   end_time=Sys.time()
+   x_How_much_time[i-20]=end_time-start_time
+ }
+> x_How_much_time
+ [1]  0.01642895  0.01448393  0.02193594  0.03333998  0.02787900  0.02008891  0.03040409  0.05456185
+ [9]  0.03581500  0.03601098  0.04758692  0.05318499  0.05366707  0.09917307  0.13027883  0.17889309
+[17]  0.28935885  0.23676014  0.26383209  0.31062984  0.46740794  0.68840814  0.95720387  1.28632188
+[25]  2.08645511  2.93273807  3.65396404  3.99307489  4.42027307 12.06245995 11.30571795 11.13233399
+[33] 11.45668817 14.62808585 17.09605908 22.97993398 21.58079195 23.83524585 34.03196502 41.60394907
+[41] 51.96347308  1.00585293  1.02436788  1.18712872  1.80308125  2.35259773  2.98361372  2.34392933
+[49]  2.71926720  2.39529073  3.34870415  3.68497676  5.50828413
+```
+
+- Once obtained the measures, I had to convert the output time from the 42nd to the last element 
+of the vector "x_How_much_time" because when the time passes a minute of running this 
+function returns minutes and not seconds anymore, so I made those transformations to have the 
+values of the same scale; 
+```r
+x_How_much_time_seconds=c(x_How_much_time[1:41], x_How_much_time[42:53]*60)
+x_How_much_time_minutes=x_How_much_time_seconds/60
+> x_How_much_time_minutes
+ [1] 0.0002738158 0.0002413988 0.0003655990 0.0005556663 0.0004646500 0.0003348152 0.0005067348
+ [8] 0.0009093642 0.0005969167 0.0006001830 0.0007931153 0.0008864164 0.0008944511 0.0016528845
+[15] 0.0021713138 0.0029815515 0.0048226476 0.0039460023 0.0043972015 0.0051771641 0.0077901324
+[22] 0.0114734689 0.0159533978 0.0214386980 0.0347742518 0.0488789678 0.0608994007 0.0665512482
+[29] 0.0736712178 0.2010409991 0.1884286324 0.1855388999 0.1909448028 0.2438014309 0.2849343181
+[36] 0.3829988996 0.3596798658 0.3972540975 0.5671994170 0.6933991512 0.8660578847 1.0058529337
+[43] 1.0243678848 1.1871287187 1.8030812502 2.3525977333 2.9836137176 2.3439293345 2.7192672014
+[50] 2.3952907324 3.3487041513 3.6849767645 5.5082841317
+
+Minutes_for_running=sum(x_How_much_time_seconds)/60
+> Minutes_for_running
+[1] 35.29238
+```
+Those above are the minutes for each ith loop, from 21 variables to 74, and the overall
+time that took to the loop to run the 53 iterations
+
+- Here I report a simple plot with the growth in the time for the loop
+
+```r
+plot(x_How_much_time_minutes, xlab="n of iterations, variables from 21 to 74",
+     ylab="minutes for calculating the best model")
+
+```
+- After this I used the exponential growth law N(t)=N0+e^kt.. N0=21. 
+- I firstly found k with simple algebra
+```r
+k_=(log(74)-log(21))/Minutes_for_running
+> k_
+[1] 0.0356888
+```
+
+- I then got the N(t) values, first only for the last variable 
+(122(t)=21(0)*e^kt---->t=(ln(122)-ln(21))/k), just for curiosity (and for having the 
+right formula for one value of the law) 
+```r
+t_for_122=(log(122)-log(21))/k_
+#overall time estimated
+```
+
+- Finally, the estimation for the time of the single substets from the 75th to the 122nd
+and, the most interesting, the total time to run the Best Subset Selection, that 
+is a lot of time, 34 hours and 25 minutes!
+```r
+t_for_everyone=c()
+for (i in 75:122){
+  t_for_everyone[i-74]=(log(i)-log(21))/k_
+}
+t_for_everyone
+> t_for_everyone
+ [1] 35.66849 36.03962 36.40590 36.76745 37.12440 37.47686 37.82494 38.16874 38.50838
+[10] 38.84396 39.17556 39.50328 39.82722 40.14745 40.46406 40.77714 41.08675 41.39299
+[19] 41.69591 41.99559 42.29210 42.58551 42.87587 43.16326 43.44773 43.72934 44.00815
+[28] 44.28421 44.55758 44.82830 45.09644 45.36203 45.62513 45.88579 46.14404 46.39993
+[37] 46.65350 46.90481 47.15388 47.40075 47.64547 47.88807 48.12858 48.36705 48.60351
+[46] 48.83799 49.07052 49.30114
+
+sum(t_for_everyone)
+Hours_of_All=sum(t_for_everyone)/60
+> Hours_of_All
+[1] 34.41892
+```
+
+### Second point: Stepwise selection, forward and backward
+
+To search for a sub-optimal model, I performed with the leaps package the regression
+with the command regsubsets, giving as maximum number of variables to estimate k=(p+1)-1,
+so 122. NB: to analize the results and making plots, I needed the summary command.
+
+# Stepwise Forward
+
+```{r, echo=T, message=F, warning=F}
+reg_forward=regsubsets(lny~., data=Dati, method="forward", nvmax=122)
+reg_summary_fwd=summary(reg_forward)
+```
+
+I plotted the R2, taken into account for choosing among the relative best model with a given 
+number of covariates.
+
+```{r, echo=F, message=F, warning=F}
+plot(reg_forward, scale="r2")
+```
+
+To decide among models with different numbers of covariates, I then plotted and analized
+which of the models maximized the adjusted R squared or minimized the BIC or the Cp.
+
+## the best according to adjusted r2
+
+```{r, echo=T, message=F, warning=F}
+plot(reg_summary_fwd$adjr2, xlab=p, ylab="adj R2", type="l")
+points(71,reg_summary_fwd$adjr2[71], col="red",cex=2,pch =20)
+coef(reg_forward,which.max(reg_summary_fwd$adjr2))
+```
+
+## the best according to BIC
+```{r, echo=T, message=F, warning=F}
+plot(reg_summary_fwd$bic, xlab=p, ylab="BIC", type="l")
+points(22,reg_summary_fwd$bic[22], col="red",cex=2,pch =20)
+coef(reg_forward,which.min(reg_summary_fwd$bic))
+```
+                
+## the best according to Cp
+```{r, echo=T, message=F, warning=F}
+plot(reg_summary_fwd$cp, xlab=p, ylab="CP", type="l")
+points(51,reg_summary_fwd$cp[51], col="red",cex=2,pch =20)
+coef(reg_forward,which.min(reg_summary_fwd$cp))
+```
+
+For getting the number of variables that maximizes adjusted R squared or minimizes
+BIC and Cp, we search for it value in this way
+```{r, echo=T, message=F, warning=F}
+
+which.max(reg_summary_fwd$adjr2)
+which.min(reg_summary_fwd$bic)
+which.min(reg_summary_fwd$cp)
+```
+
+The different results of the optimal model by those three indicators are dictated by
+the fact that BIC is the one that penalizes more the number of covariates, hence gives
+the model with less of them. The Cp is a little more generous, it penalizes less.
+Finally, the adjusted R squared in every case will give the model with more covariates among
+those selection methods, simply because, even if it is penalized by the number of 
+covariates, will search for the minimization of RSS (corrected): this will result in more
+variables with respect to the other two criteria.
+
+The same exact procedure is valid for the backward.
+
+# Stepwise Backward
+
+```{r, echo=F, message=F, warning=F}
+reg_backward=regsubsets(lny~., data=Dati, method="backward", nvmax=122)
+reg_summary_bwd=summary(reg_backward)
+```
+
+```{r echo=F, message=FALSE, warning=FALSE}
+plot(reg_backward, scale="r2")
+```
+
+## the best according to adjusted r2
+```{r, echo=T, message=F, warning=F}
+plot(reg_summary_bwd$adjr2, xlab=p, ylab="adj R2", type="l")
+points(69,reg_summary_bwd$adjr2[69], col="red",cex=2,pch =20)
+coef(reg_backward,which.max(reg_summary_bwd$adjr2))
+```
+
+## the best according to BIC
+```{r, echo=T, message=F, warning=F}
+plot(reg_summary_bwd$bic, xlab=p, ylab="BIC", type="l")
+points(22,reg_summary_bwd$bic[22], col="red",cex=2,pch =20)
+coef(reg_backward,which.min(reg_summary_bwd$bic))
+```
+
+## the best according to Cp
+```{r, echo=T, message=F, warning=F}
+plot(reg_summary_bwd$cp, xlab=p, ylab="CP", type="l")
+points(46,reg_summary_bwd$cp[46], col="red",cex=2,pch =20)
+coef(reg_forward,which.min(reg_summary_bwd$cp))
+```
+
+```{r, echo=T, message=F, warning=F}
+which.max(reg_summary_bwd$adjr2)
+which.min(reg_summary_bwd$bic)
+which.min(reg_summary_bwd$cp)
+```
+
+Just for completeness I performed also the simultaneous, but for this I remind directly
+to the code since is very similar to backward in results.
+
+## Third point: personal code
+
+I tried hard, really hard, in four different ways.  
+The first (forward) and the third (backward) were a mess,  but the second was half 
+a success, because I could be able to find a forward algorithm but not
+in an efficient way. It took 10 minutes to run!   
+The second forward attempt worked a little bit better, it gave almost the same results of 
+the R command (considering  adjusted r2) but again, too slow, and also without intercept.
+My final (fourth) attempt where I introduced also the intercept seemed to work well, less 
+than 3 minutes of running, but the results are a bit different from the R command. Using
+adjusted R2 it gives me more variables than the R forward, and instead using the BIC I 
+obtain less variables (my algorithm gives to me 14 covariates, while R command says the best 
+is 22). Sadly I don't have any other time to try to improve it, so I report it, commented). 
+For now it's the best I can do.
+```{r, echo=F, message=F, warning=F}
+Xm=model.matrix(lny~X, data=Dati)
+n=nrow(Xm)
+
+
+```
+
+```{r, echo=T, message=F, warning=F}
+#FINAL ATTEMPT: FORWARD
+#The vector containing the indexes of the coefficients, chosen according to R2
+mk_fwd_pos=c()
+#step 0
+#m0, the null model, just for completeness
+m0=summary(lm(lny ~ Xm[,1], Dati))$r.squared
+#mk
+i=1
+for(i in 1:p){
+  if(i==1){ #step 1: first model, m1, with intercept and one covariate
+    r2_vect=c() #vector containing all the R2 values
+    r2max=0  #Initializing the max R2 between all the models for each k, here k=1
+    for(col in 1:p){
+      r2_vect[col]=summary(lm(lny ~ Xm[,c(1,col+1)], Dati))$r.squared
+    }
+    r2max=which.max(r2_vect)
+    mk_fwd_pos=c(mk_fwd_pos,r2max) #I got the position of the variable for M1
+  }else if(i>=2){ #steps 2 to k
+    r2_vect=c() #vector that will contain R squared for each mk, k=2..p in this loop   
+    r2max=0
+    col=1
+    while(col <= p){ #I put a while here because first I was trying another idea, not important
+      if ((any(mk_fwd_pos==(col)))==F){  
+        r2_vect[col]=summary(lm(lny~Xm[,c(1,mk_fwd_pos,col+1)], Dati))$r.squared
+        col=col+1
+      }else{           #this passage is crucial: when the loop creates a matrix
+        r2_vect[col]=0 #with doubled variables, I skip them, putting a zero value
+        col=col+1      #on that precise position on the vector... It seems a good
+      }                #idea to me, it's not important the value, the only thing
+    }                  #is that it should be less than the major one: if not I 
+    r2max=which.max(r2_vect)                               #only get duplicates
+    mk_fwd_pos=c(mk_fwd_pos,r2max) 
+  }
+}
+#All the variables ordered by importance according to forward criteria
+mk_fwd_pos
+```
+This was the loop for having the rank of all the covariates and proceeding choosing
+among mk the best, and then selecting Mk
+
+- The variables ranked
+```{r, echo=T, message=F, warning=F}
+Covariates_considered=c() #having the name of the covariates
+for(i in 1:p){
+  Covariates_considered[i]=paste(c("x.V",mk_fwd_pos[i]+5), collapse = "")
+}
+Covariates_considered
+```
+
+- Obtaining the BIC
+```{r, echo=T, message=F, warning=F}
+XtX=t(Xm)%*%Xm   #the betas for this regression
+XtXminus1=solve(XtX)
+betaj=XtXminus1%*%t(Xm)%*%lny
+
+Hm=Xm%*%XtXminus1%*%t(Xm) #Projection matrix
+Ip=diag(n)                #Identity matrix
+he=(Ip-Hm)%*%lny          #residuals
+sum(he^2)                 #RSS
+
+bic_vect=c()
+bicMin=0
+for (i in 1:p){  #NB: +1 in coordinates because of how I made the regression in code above
+  Hm=Xm[,c(1,mk_fwd_pos[1:i]+1)]%*%solve(t(Xm[,c(1,mk_fwd_pos[1:i]+1)])
+          %*%Xm[,c(1,mk_fwd_pos[1:i]+1)])%*%t(Xm[,c(1,mk_fwd_pos[1:i]+1)])
+  he=(Ip-Hm)%*%lny
+  RSS_=sum(he^2)
+  bic_vect[i]=1/n*(RSS_+log(n)*i*(RSS_/(n-p-1)))
+}
+bicMin=which.min(bic_vect)    
+Covariates_considered[1:bicMin]  #the covariates to consider according to the BIC
+
+plot(1:p,bic_vect, xlab="variables ordered by R2", ylab="BIC")
+
+XtX_fwd=t(Xm[,c(1,mk_fwd_pos[1:bicMin])])%*%Xm[,c(1,mk_fwd_pos[1:bicMin])]
+XtXminus1_fwd=solve(XtX_fwd)
+betaj_fwd=XtXminus1_fwd%*%t(Xm[,c(1,mk_fwd_pos[1:bicMin])])%*%lny
+betaj_fwd
+```
+
+Those above were the Beta's fitted according to my forward algorithm.
+
+# Question 4  
+
+## Shrinkage methods  
+
+### First point  
+For calculating the Beta's for the Ridge regression I proceeded in this way
+
+- I standardized the X for having same scales, centered lny to avoid intercept
+```{r, echo=T, message=F, warning=F}
+#Xstd
+#lny
+bar_lny=mean(lny)
+centr_lny=lny-bar_lny
+```
+
+- I then created the model matrix without the intercept, I squared it, I created
+a grid for the lambda (I tried several ones, and the one that I report is the final
+one used for all) and an identity matrix p-dimensional
+```{r, echo=T, message=F, warning=F}
+Xm_ridge=model.matrix(centr_lny~Xstd, data=Dati)[,-1]
+XtX_ridge=t(Xm_ridge)%*%Xm_ridge
+lambda=seq(0,50,by=0.5)
+I_ridge=diag(1,p)
+```
+
+- I finally had all the ingredients to compute all the possible vectors of the ridge 
+beta's, according to the different lambdas
+```{r, echo=F, message=F, warning=F}
+XtX_ridge_lambdaI=c()
+XtX_ridge_lambdaIminus1=c()
+rbetaj=data.frame()
+```
+
+- The for loop for the coefficients
+```{r, echo=T, message=F, warning=F}
+for (i in 1:length(lambda)){
+  XtX_ridge_lambdaI=XtX_ridge+lambda[i]*I_ridge
+  XtX_ridge_lambdaIminus1=solve(XtX_ridge_lambdaI)
+  rbetaj[1:p,i]=XtX_ridge_lambdaIminus1%*%t(Xm_ridge)%*%centr_lny
+}
+```
+
+- Here I provide a plot where lambda is reported on the x-axis and on the y-axis 
+the corresponding beta of the ridge
+
+```{r, echo=F, message=F, warning=F}
+plot(lambda, rbetaj[1,], type="l", ylim=c(-2,2), xlim=c(0,50), ylab="Beta Ridge")
+for (i in 2:p){
+  lines(lambda, rbetaj[i,], type="l", ylab="Beta Ridge")
+}
+```
+
+- I wanted to create another plot where on the x-axis there is the norm of the beta ridge
+over the norm of the beta ols (both standardized clearly) and on the y-axis the corresponding 
+beta of the ridge: that to see how the two types of coefficients can differ in magnitude
+according to the value of lambda (=1 -> no difference; =0 -> all zero of the ridge)!
+
+```{r, echo=F, message=F, warning=F}
+#plotting OLS standardized versus Beta ridge standardized to compare them, using
+#Xm_ridge cause it's simply the X standardized
+
+#Xm_ridge 
+#XtX_ridge 
+XtXminus1_=solve(XtX_ridge)
+
+betaj_OLS_centr=XtXminus1_%*%t(Xm_ridge)%*%centr_lny
+
+norm_betaRidge_norm_betaOLS=c()
+for(i in 1:length(lambda)){
+  norm_betaRidge_norm_betaOLS[i]=sqrt(sum(rbetaj[,i]^2))/sqrt(sum(betaj_OLS_centr^2))
+}
+plot(norm_betaRidge_norm_betaOLS, rbetaj[1,], type="l", ylim=c(-5,2),
+     ylab="Beta Ridge & Beta OLS", xlab="norm of beta ridge over norm of beta OLS")
+for (i in 2:length(lambda)){
+  lines(norm_betaRidge_norm_betaOLS,rbetaj[i,], type="l", ylab="Beta Ridge & Beta OLS")
+}
+```
+
+- I tried then to implement the GCV for choosing the best lambda (I used this one
+just because of the simplicity of the formula)
+NB: it's a bit slow
+
+```{r, echo=T, message=F, warning=F}
+GCV=c()
+n=length(centr_lny)
+for (i in 1:length(lambda)){
+  XtX_ridge_lambdaI=XtX_ridge+lambda[i]*I_ridge
+  XtX_ridge_lambdaIminus1=solve(XtX_ridge_lambdaI)
+  H=Xm_ridge%*%XtX_ridge_lambdaIminus1%*%t(Xm_ridge)
+  projection_centr_lny=H%*%centr_lny
+  tr_H=sum(diag(H))
+  GCV[i]=1/n*sum(((centr_lny-projection_centr_lny)/(1-(tr_H)/n))^2)
+}
+best_lambda_position=which.min(GCV)
+best_lambda=lambda[best_lambda_position]
+best_lambda
+```
+
+- With this graph I plot where the best lambda is
+
+```{r, echo=F, message=F, warning=F}
+plot(lambda, rbetaj[1,], type="l", ylim=c(-2,2), xlim=c(0,50), ylab="Beta Ridge")
+for (i in 2:p){
+  lines(lambda, rbetaj[i,], type="l", ylab="Beta Ridge")
+}
+abline(v=best_lambda)
+```
+
+- I finally could find the best model according to Ridge regression and GCV
+```{r, echo=T, message=F, warning=F}
+Best_rbetaj=c()
+XtX_ridge_lambdaI=XtX_ridge+best_lambda*I_ridge
+XtX_ridge_lambdaIminus1=solve(XtX_ridge_lambdaI)
+Best_rbetaj=XtX_ridge_lambdaIminus1%*%t(Xm_ridge)%*%centr_lny
+round(Best_rbetaj,3)
+```
+
+In the code I reported also the R commands to verify that I was doing the right things,
+thus there will be some comparisons and more code.
+
+For completeness, I wanted also to calculate the p-values: I report the code just
+for completeness of my analysis even if not required
+```{r, echo=T, message=F, warning=F}
+#How about the p-values?
+H=Xm_ridge%*%XtX_ridge_lambdaIminus1%*%t(Xm_ridge)
+projection_centr_lny=H%*%centr_lny
+#Residuals 
+I_n=diag(n)
+h_e_ridge=(I_n-H)%*%centr_lny
+#RSS
+RSS_ridge=sum((h_e_ridge)^2) 
+#Bigger than OLS because more variance due to penalization
+#SE
+SIGMA2_ridge=RSS_ridge/(n-p-1)
+VarBetaj_ridge=SIGMA2_ridge*diag(XtX_ridge_lambdaIminus1)
+SE_ridge=sqrt(VarBetaj_ridge)
+t_value_ridge=vector()
+for(i in 1:length(Best_rbetaj)){
+  t_value_ridge[i]=Best_rbetaj[i]/SE_ridge[i]
+} 
+#t_value_ridge
+#Now I can proceed with the p-value
+p_value_ridge=vector()
+for(i in 1:length(Best_rbetaj)){
+  p_value_ridge[i]=2*min((1-pt(t_value_ridge[i], df=n-p-1)), 
+                   (pt(t_value_ridge[i], df=n-p-1)))
+}
+#p_value_ridge
+
+HowMuchCoeff_p_value=0
+for(i in 1:length(Best_rbetaj)){
+  if(p_value_ridge[i]<=0.05){
+    HowMuchCoeff_p_value=HowMuchCoeff_p_value+1
+  }  
+}
+HowMuchCoeff_p_value
+```
+Only fourteen resulted statistically significant! (In OLS was 18)
+
+## Second point 
+
+In comparing the Stepwise methods with the Ridge, I used the adjusted R squared.
+So, first of all, I needed the TSS (that I already had), calculated in this other way
+to mark the fact I'm using centered log of response
+```{r, echo=T, message=F, warning=F}
+TSS_ridge=sum((centr_lny)^2)
+```
+
+I computed the index (without inserting -1 in the formula because the absence of the intercept)
+and then compared it with the one of the Forward and Backward.
+So here there are the adjusted R squared of the:
+1. Ridge regression
+2. Forward Stepwise regression
+3. Backward Stepwise regression
+```{r, echo=T, message=F, warning=F}
+R_2_adj_ridge=1-(RSS_ridge/(n-p))/(TSS_ridge/(n))
+R_2_adj_ridge
+R_2_adj_fwd=reg_summary_fwd$adjr2
+R_2_adj_fwd[which.max(reg_summary_fwd$adjr2)]
+R_2_adj_bwd=reg_summary_bwd$adjr2
+R_2_adj_bwd[which.max(reg_summary_bwd$adjr2)]
+```
+It turns out that, basing our evaluation on adjusted R squared, the better is
+the backward stepwise. 
+It must be said that the ridge doesn't equal any coefficient exactly to zero,
+so it will be penalized more for having lots of explanatory variables, hence
+I would not throw it away with respect to the two stepwise method only for a 
+very little better index. Surely, with all those variables, if we want 
+something good for interpretability and for less overfitting, maybe is better
+to have some coefficients equals to exactly zero, so that we have less 
+variables to take into account. Hence, I would prefer models like the to 
+stepwise only for this, but if I want to use a shrunking method, in this case
+it's maybe better to go for a lasso.
+
+### Third point
+
+I now compute the Lasso regression, with his so similar but so different penalty,
+this time with the help of the library
+```{r, echo=T, message=F, warning=F}
+#Beta Lasso
+#install.packages("glmnet")
+library(glmnet)
+```
+Just to play a bit, I computed first the Lasso with the not centered log of y's 
+and with the covariates not standardized, to get an output with the coefficients
+in absolute values.    
+I also got a plot with the ratio of the two norms (Lasso and OLS), and the coefficients on the y
+like the one printed few pages above for the Ridge (but more colorful)  
+```{r, echo=T, message=F, warning=F}
+Xm_lasso=model.matrix(lny~., data=Dati)[,-1]
+Lasso_regr=glmnet(Xm_lasso,lny,alpha=1,lambda=lambda)
+plot(Lasso_regr)
+
+```
+
+
+- For making true comparison with the ridge, I insert the standardized X matrix
+and the centered log of y's.
+Of course I obtained an identical plot, just with different scale
+```{r, echo=T, message=F, warning=F}
+Xm_lasso_std_centr=model.matrix(centr_lny~Xstd, data=Dati)[,-1]
+Lasso_regr_std_centr=glmnet(Xm_lasso_std_centr,centr_lny,alpha=1,lambda=lambda)
+plot(Lasso_regr_std_centr)
+```
+
+- It's now time to choose the lambda with a cross validation, thanks to the library   
+
+NB: I set a seed because I notice that re-running those commands give me slightly
+different lambdas... I didn't really get the reason, maybe because the grid of lambdas
+are randomly setted every interation, or maybe because the k-folds changes randomly.
+But I solved the randomness that is somewhere in this process setting a seed.
+```{r, echo=T, message=F, warning=F}
+set.seed(137)
+cv_lasso=cv.glmnet(x=Xm_lasso_std_centr, y=centr_lny)
+cv_lasso
+ 
+cv_lasso$lambda.min
+cv_lasso$lambda.1se
+```
+
+After the cross-validation, it turns out that this package finds two best lambdas:
+the "min" if we consider the best as the one that minimizes the error, the "1se" if
+we consider the one that gives us the least number of variables but that doesn't go far
+away from the minimum MSE, for a factor of one standard error.  
+Here I report a plot with the lambdas on x-axis (in log) and the MSE on the y's one,
+with two lines representing the two lambdas. It's very nice!
+
+```{r, echo=F, message=F, warning=F}
+plot(cv_lasso)
+```
+
+If I choose the best lambda as the one minimizing the MSE, I get those coefficients
+```{r, echo=T, message=F, warning=F}
+coef(cv_lasso, s="lambda.min")
+```
+
+I wanted to make also the Ridge regression using this library, so here I report the
+very same analysis, with the graphs equals to the one made manually by me few pages above
+(those ones surely better)
+
+```{r, echo=T, message=F, warning=F}
+Ridge_regr_std_centr=glmnet(Xm_ridge,centr_lny,alpha=0,lambda=lambda)
+
+set.seed(137)
+cv_ridge=cv.glmnet(x=Xm_ridge, y=centr_lny, alpha=0)
+cv_ridge
+```
+
+It's interesting to see that the lambda found here is different from my lambda if I 
+perform all in my R code, but the results given here in markdown differ from the code,
+and the lambda found manually is the same as the one found by glmnet. I don't really
+understand why. But let's move on.
+
+Here the coefficients compared with the usual ratio between the two norms
+
+```{r, echo=F, message=F, warning=F}
+plot(Ridge_regr_std_centr, xvar="lambda")
+```
+
+And here the same nice plot of before, with the lambdas on x-axis (in log) and 
+the MSE on the y's one
+
+```{r, echo=F, message=F, warning=F}
+plot(cv_ridge)
+```
+
+### Fourth point and conclusion
+
+In comparing the Ridge and the Lasso regression, we can interpret them as computationally 
+feasible alternatives to the best subset selection, that replace its intractable form.
+We can appreciate how a lot of the Lasso coefficients are shrunked to exactly zero, so if I
+want to select the simpler and less overfitted (but with more bias, hence less flexible) 
+model because we want to make a good inference, the Lasso should be the chosen one.
+Alternatively, if we want a little more complicate model, we should go for the Ridge:
+this would be better also if we take into account the problem of multicollinearity, because 
+removing the coefficients and don't take them into account, with some sort of interaction
+to solve this problem, can increase a lot some patterns in the errors, thus the assumptions
+of linearity and additivity of the model wouldn't hold.
+But it must be said that even in the ridge lots of coefficients are almost zero, so the final
+result is similar.
+I affirmed that the ridge don't shrunk exactly to zero, so it's a little bit difficult to
+exactly compare it with the two Stepwise methods.
+But the Lasso and those methods are instead more comparable, at least if we want to 
+see which variables are considered.
+With the Lasso we remain with only 14 or 23 variables (depending on which lambda we use):
+a big reduction compared to all the other methods, unless we consider the BIC in the
+Stepwise methods, that for both was 22.  
+In conclusion, there is not a best method among all, it really depends on our objective:
+should we prefer simplicity and inference or capacity of prediction?
+Sadly, I don't have the answer.
+
+
